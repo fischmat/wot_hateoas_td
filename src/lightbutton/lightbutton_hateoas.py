@@ -49,6 +49,63 @@ def check_button_status(on_press, button_gpio):
         else:
             isButtonPressed = False
 
+def toggle_light_power_status(light, light_url):
+    """
+    Toggles the powerstatus of a application/roomlight+json light thing.
+    @type light dict
+    @param light The base description of a room light.
+    @type light_url str
+    @param light_url URL of the lights root resource
+    @rtype bool
+    @return Returns true on success. Prints to stderr and returns False on error.
+    @raise MalformedResponse On unexpected structure/values of the responses.
+    """
+    power_status_resource = light['_links']['onoff']
+    href = urlparse(light_url + power_status_resource['href'])
+
+    if href.port:
+        port = href.port
+    else:
+        port = 80
+
+    conn = httplib.HTTPConnection(href.host, port=port)
+    conn.request('GET', href.path)
+    response = conn.getresponse()
+    media_type = get_media_type(response)
+    if media_type == 'text/plain':
+        power_state = response.read()
+    else:
+        raise MalformedResponse('Expected media-type text/plain for resource %s. Received %s' % (light_url + power_status_resource['href'], media_type))
+    conn.close()
+
+    if power_state == 'on':
+        new_power_state = 'off'
+    elif power_state == 'off':
+        new_power_state = 'on'
+    else:
+        raise MalformedResponse('Got unknown power state %s' % power_state)
+
+    power_update_resource = light['_forms']['onoff']
+    if power_update_resource['accept'] != 'text/plain':
+        raise MalformedResponse('Form onoff only supports unknown media type %s' % power_update_resource['accept'])
+
+    href = urlparse(light_url + power_update_resource['href'])
+    if href.port:
+        port = href.port
+    else:
+        port = 80
+
+    conn = httplib.HTTPConnection(href.host, port=port)
+    conn.request(power_update_resource['method'], href.path)
+    response =  conn.getresponse()
+
+    if response.code == 200:
+        return True
+    else:
+        stderr.write("%s to %s resulted in %s\n" % (power_update_resource['method'], light_url + power_update_resource['href'], response.code + response.status))
+        return False
+
+
 def get_media_type(http_response):
     """
     Returns the Content-Type header field of a HTTP response.
@@ -68,8 +125,8 @@ def dispatch_bulletin_board(bulletin):
     @type bulletin dict|str
     @param bulletin The bulletin board as json string or as a dictionary.
     @rtype dict|None
-    @return (base, media_type) or None if no appropriate light was found.
-    The first is the base of the light as unserialized JSON, the second is the media type of the lights base.
+    @return (base, media_type, url) or None if no appropriate light was found.
+    The first is the base of the light as unserialized JSON, the second is the media type of the lights base and the third its base URL.
     @raise UnsupportedProtocol If the bulletin board directs to a non-HTTP URL.
     @raise MalformedResponse If the bulletin board is malformed.
     """
@@ -98,7 +155,7 @@ def dispatch_bulletin_board(bulletin):
             if media_type in supported_light_mediatypes:
                 data = response.read()
                 conn.close()
-                return (json.loads(data), media_type)
+                return (json.loads(data), media_type, item['_base'])
 
         return None
 
@@ -115,8 +172,8 @@ def get_light_description(host, port=80):
     @type port int
     @param port The port where the HTTP server listens on host.
     @rtype dict|None
-    @return Tuple (base, media_type) or None if no appropriate light was found.
-    The first is the base of the light as unserialized JSON, the second is the media type of the lights base.
+    @return Tuple (base, media_type, light_url) or None if no appropriate light was found.
+    The first is the base of the light as unserialized JSON, the second is the media type of the lights base and the third its base URL.
     """
     conn = httplib.HTTPConnection(host, port=port)
     conn.request('GET', '/')
@@ -131,10 +188,10 @@ def get_light_description(host, port=80):
     elif media_type in supported_light_mediatypes:
         light = json.loads(response.read())
         conn.close()
-        return (light, media_type)
+        return (light, media_type, "http://%s:%d/" % (host, port))
 
     else:
-        return None
+        return (None, None, None)
 
 
 if len(argv) == 1: # If no arguments passed via CLI. (Interpreter path is always in there)
@@ -161,7 +218,13 @@ else:
     port = int(argv[argv.index('--port') + 1])
 
 # Get the description of the light:
-light = get_light_description(light_host, port)
+light, media_type, light_url = get_light_description(light_host, port)
 if not light:
     stderr.write("No light found :(\n")
+else:
+    print("Found light '%s'" % light['name'])
 
+if media_type == 'application/roomlight+json':
+    check_button_status(lambda: toggle_light_power_status(light, light_url), button_gpio)
+else:
+    stderr.write("Don't know how to handle media type %s" % media_type)
