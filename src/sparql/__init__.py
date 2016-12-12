@@ -11,6 +11,55 @@ class SparqlException(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+class UnknownPrefixException(SparqlException):
+    """
+    Signalizes that a shorthand IRI should be resolved from an unknown prefix.
+    """
+    pass
+
+class SPARQLNamespaceRepository(object):
+    """
+    Utility class for resolving shorthand notation for IRIs, e.g. dogont:Lighting to
+    http://elite.polito.it/ontologies/dogont.owl#Lighting.
+
+    Example:
+        ns = SPARQLNamespaceRepository()
+        ns.register('dogont', 'http://elite.polito.it/ontologies/dogont.owl#')
+        ns.resolve('dogont:Lighting')
+        > http://elite.polito.it/ontologies/dogont.owl#Lighting
+    """
+    __prefixes = {}
+
+    def register(self, prefix_name, prefix):
+        """
+        Register a shorthand for a IRI-prefix.
+        @type prefix_name str
+        @param prefix_name The shorthand name of the prefix, e.g. dogont.
+        @type prefix str
+        @param prefix The full prefix, e.g. http://elite.polito.it/ontologies/dogont.owl#.
+        """
+        self.__prefixes[prefix_name] = prefix
+
+    def resolve(self, shorthand):
+        """
+        Resolves a shorthand notation of an IRI using a previously registered prefix.
+        @type shorthand str
+        @param shorthand A shorthand IRI, e.g. dogont:Lighting
+        @rtype str
+        @return The full IRI.
+        @raise UnknownPrefixException If the used prefix was not previously registered.
+        @raise ValueError If the shorthand is malformed, i.e. not '<prefix>:<resource>'.
+        """
+        try:
+            prefix, resource = shorthand.split(':')
+            if prefix in self.__prefixes.keys():
+                return self.__prefixes[prefix] + resource
+            else:
+                raise UnknownPrefixException('The IRI-prefix %s is unknown by this repository' % prefix)
+
+        except ValueError:
+            raise ValueError('%s is not a valid IRI-shorthand.' % shorthand)
+
 
 def __query(q):
     """
