@@ -194,11 +194,12 @@ def get_light_description(host, port=80):
         return (None, None, None)
 
 
-if len(argv) == 1: # If no arguments passed via CLI. (Interpreter path is always in there)
+if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interpreter path is always in there)
     print("Room Light switch implementing HATEOAS approach.")
     print("Options:")
     print("--light-host ADDR : Specifies the hostname of a light or its IPv4 address.")
     print("--button-gpio GPIO: Specifies the GPIO number of the button.")
+    quit()
 
 if '--light-host' not in argv or argv.index('--light-host') < len(argv) - 1:
     stderr.write("Missing required option '--light-host'\n")
