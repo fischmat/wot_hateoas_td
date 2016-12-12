@@ -20,6 +20,7 @@ class Test_Sparql(TestCase):
         ns = SPARQLNamespaceRepository()
         ns.register('dogont', 'http://elite.polito.it/ontologies/dogont.owl#')
         self.assertEqual(ns.resolve('dogont:Lighting'), 'http://elite.polito.it/ontologies/dogont.owl#Lighting')
+        self.assertEqual(ns.resolve('http://elite.polito.it/ontologies/dogont.owl#Lighting'), 'http://elite.polito.it/ontologies/dogont.owl#Lighting')
 
         with self.assertRaises(UnknownPrefixException):
             ns.resolve('unknownont:Lighting')

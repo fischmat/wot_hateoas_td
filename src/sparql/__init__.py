@@ -1,6 +1,7 @@
 # sparql module
 # Defines functionality to perform certain queries
 # The endpoint used is lov.okfn.org
+from urllib.parse import urlparse
 
 from requests import post
 
@@ -50,6 +51,11 @@ class SPARQLNamespaceRepository(object):
         @raise UnknownPrefixException If the used prefix was not previously registered.
         @raise ValueError If the shorthand is malformed, i.e. not '<prefix>:<resource>'.
         """
+        # First check if this is already a
+        parsed = urlparse(shorthand)
+        if parsed.scheme and parsed.netloc:
+            return shorthand
+
         try:
             prefix, resource = shorthand.split(':')
             if prefix in self.__prefixes.keys():
