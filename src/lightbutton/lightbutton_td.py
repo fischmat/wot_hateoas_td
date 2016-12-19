@@ -1,9 +1,14 @@
+import json
 from _thread import start_new_thread
 from sys import argv, stderr
 from urllib.parse import urlparse
 
-import RPi.GPIO as GPIO
+import http.client as httplib
+import RPi.GPIO as GPIO # TODO Uncomment on RPi
 import time
+
+from src import td
+from src.td import ThingDescription
 
 known_light_classes = [
     'http://elite.polito.it/ontologies/dogont.owl#Lighting'
@@ -39,13 +44,30 @@ def check_button_status(on_press, button_gpio):
     while True:
         input_state = GPIO.input(button_gpio)
         if input_state == False and not isButtonPressed:
-            start_new_thread(on_press, ()) # Start function in new thread
-            isButtonPressed = True # Prevent repeated calls per button press
+            start_new_thread(on_press, ())  # Start function in new thread
+            isButtonPressed = True  # Prevent repeated calls per button press
             time.sleep(0.2)
         else:
             isButtonPressed = False
 
+def toggle_light_state(onoff_prop):
+    light_state = onoff_prop.value_plain()
+    if light_state == 'on':
+        onoff_prop.set('off')
+    else:
+        onoff_prop.set('on')
 
+
+def get_td(url):
+    url_parsed = urlparse(url)
+
+    conn = httplib.HTTPConnection(url_parsed.netloc)
+    conn.request('GET', url_parsed.path)
+    response = conn.getresponse()
+    if response.code == 200:
+        return ThingDescription(json.loads(response.read().decode('utf-8')))
+    else:
+        raise Exception("Received %d %s requesting %s" % (response.code, response.status, url))
 
 if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interpreter path is always in there)
     print("Room Light switch implementing HATEOAS approach.")
@@ -54,13 +76,13 @@ if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interp
     print("--button-gpio GPIO: Specifies the GPIO number of the button.")
     quit()
 
-if '--light-url' not in argv or argv.index('--light-url') < len(argv) - 1:
+if '--light-url' not in argv or argv.index('--light-url') >= len(argv) - 1:
     stderr.write("Missing required option '--light-url'\n")
     quit()
 else:
-    light_url = urlparse(argv[argv.index('--light-url') + 1])
+    light_url = argv[argv.index('--light-url') + 1]
 
-if '--button-gpio' not in argv or argv.index('--button-gpio') < len(argv) - 1:
+if '--button-gpio' not in argv or argv.index('--button-gpio') >= len(argv) - 1:
     stderr.write("Missing required option '--button-gpio'\n")
     quit()
 else:
@@ -71,3 +93,12 @@ if '--port' not in argv or argv.index('--port') < len(argv) - 1:
 else:
     port = int(argv[argv.index('--port') + 1])
 
+light_td = get_td(light_url)
+
+onoff_prop = light_td.get_property_by_types(['http://elite.polito.it/ontologies/dogont.owl#OnOffState'])
+
+if not onoff_prop:
+    stderr.write("Thing has no appropriate property for On/Off state.")
+    quit()
+
+check_button_status(toggle_light_state(onoff_prop), button_gpio)
