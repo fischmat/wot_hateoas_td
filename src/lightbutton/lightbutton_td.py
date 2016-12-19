@@ -51,7 +51,7 @@ def check_button_status(on_press, button_gpio):
             isButtonPressed = False
 
 def toggle_light_state(onoff_prop):
-    light_state = onoff_prop.value_plain()
+    light_state = onoff_prop.value()
     if light_state == 'on':
         onoff_prop.set('off')
     else:
