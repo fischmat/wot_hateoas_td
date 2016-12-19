@@ -96,7 +96,7 @@ def toggle_light_power_status(light, light_url):
         port = 80
 
     conn = httplib.HTTPConnection(href.host, port=port)
-    conn.request(power_update_resource['method'], href.path)
+    conn.request(power_update_resource['method'], href.path, body=new_power_state)
     response =  conn.getresponse()
 
     if response.code == 200:
