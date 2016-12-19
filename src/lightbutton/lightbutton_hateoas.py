@@ -46,7 +46,7 @@ def check_button_status(on_press, button_gpio):
             start_new_thread(on_press, ()) # Start function in new thread
             isButtonPressed = True # Prevent repeated calls per button press
             time.sleep(0.2)
-        else:
+        elif input_state == True:
             isButtonPressed = False
 
 def toggle_light_power_status(light, light_url):
@@ -63,17 +63,15 @@ def toggle_light_power_status(light, light_url):
     power_status_resource = light['_links']['onoff']
     href = urlparse(light_url + power_status_resource['href'])
 
-    if href.port:
-        port = href.port
-    else:
-        port = 80
+    if href.scheme != 'http':
+        raise UnsupportedProtocol()
 
-    conn = httplib.HTTPConnection(href.host, port=port)
+    conn = httplib.HTTPConnection(href.netloc)
     conn.request('GET', href.path)
     response = conn.getresponse()
     media_type = get_media_type(response)
     if media_type == 'text/plain':
-        power_state = response.read()
+        power_state = response.read().decode('utf-8').rstrip()
     else:
         raise MalformedResponse('Expected media-type text/plain for resource %s. Received %s' % (light_url + power_status_resource['href'], media_type))
     conn.close()
@@ -90,19 +88,15 @@ def toggle_light_power_status(light, light_url):
         raise MalformedResponse('Form onoff only supports unknown media type %s' % power_update_resource['accept'])
 
     href = urlparse(light_url + power_update_resource['href'])
-    if href.port:
-        port = href.port
-    else:
-        port = 80
 
-    conn = httplib.HTTPConnection(href.host, port=port)
-    conn.request(power_update_resource['method'], href.path, body=new_power_state)
+    conn = httplib.HTTPConnection(href.netloc)
+    conn.request(power_update_resource['method'], href.path, body=new_power_state, headers={'Content-Type': 'text/plain'})
     response =  conn.getresponse()
 
     if response.code == 200:
         return True
     else:
-        stderr.write("%s to %s resulted in %s\n" % (power_update_resource['method'], light_url + power_update_resource['href'], response.code + response.status))
+        stderr.write("%s to %s resulted in %d %s\n" % (power_update_resource['method'], light_url + power_update_resource['href'], response.code, response.status))
         return False
 
 
@@ -142,18 +136,13 @@ def dispatch_bulletin_board(bulletin):
             if thing_root.scheme != 'http':
                 raise UnsupportedProtocol("Protocol %s required for discovery of %s is unsupported." % (thing_root.scheme, item['_base']))
 
-            # Get the port we use for communication:
-            if thing_root.port:
-                port = thing_root.port
-            else:
-                port = 80
 
-            conn = httplib.HTTPConnection(thing_root.host, port=port)
+            conn = httplib.HTTPConnection(thing_root.netloc)
             conn.request('GET', thing_root.path)
             response = conn.getresponse()
             media_type = get_media_type(response)
             if media_type in supported_light_mediatypes:
-                data = response.read()
+                data = response.read().decode('utf-8')
                 conn.close()
                 return (json.loads(data), media_type, item['_base'])
 
@@ -181,14 +170,14 @@ def get_light_description(host, port=80):
 
     media_type = get_media_type(response)
     if media_type == 'application/bulletin-board+json': # Does this device host multiple things?
-        light = dispatch_bulletin_board(response.read())
+        light = dispatch_bulletin_board(response.read().decode('utf-8'))
         conn.close()
         return light
 
     elif media_type in supported_light_mediatypes:
-        light = json.loads(response.read())
+        light = json.loads(response.read().decode('utf-8'))
         conn.close()
-        return (light, media_type, "http://%s:%d/" % (host, port))
+        return (light, media_type, "http://%s:%d" % (host, port))
 
     else:
         return (None, None, None)
@@ -201,19 +190,19 @@ if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interp
     print("--button-gpio GPIO: Specifies the GPIO number of the button.")
     quit()
 
-if '--light-host' not in argv or argv.index('--light-host') < len(argv) - 1:
+if '--light-host' not in argv or argv.index('--light-host') >= len(argv) - 1:
     stderr.write("Missing required option '--light-host'\n")
     quit()
 else:
     light_host = argv[argv.index('--light-host') + 1]
 
-if '--button-gpio' not in argv or argv.index('--button-gpio') < len(argv) - 1:
+if '--button-gpio' not in argv or argv.index('--button-gpio') >= len(argv) - 1:
     stderr.write("Missing required option '--button-gpio'\n")
     quit()
 else:
-    button_gpio = argv[argv.index('--button-gpio') + 1]
+    button_gpio = int(argv[argv.index('--button-gpio') + 1])
 
-if '--port' not in argv or argv.index('--port') < len(argv) - 1:
+if '--port' not in argv or argv.index('--port') >= len(argv) - 1:
     port = 80
 else:
     port = int(argv[argv.index('--port') + 1])
