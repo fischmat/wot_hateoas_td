@@ -5,7 +5,6 @@ from urllib.parse import urlparse
 from src import sparql
 from src.sparql import SPARQLNamespaceRepository
 
-
 class ThingDescription(object):
 
     __td = dict()
@@ -54,6 +53,54 @@ class ThingDescription(object):
 
     def uris(self):
         return self.__td['uris']
+
+
+def _validate_input_string(self, vt, value):
+    if isinstance(value, str):
+        # Any constraints?
+        if 'enum' in vt.keys():
+            if value in vt['enum']:
+                return self.__set_plain(value)
+            else:
+                raise ValueError("Value %s not allowed (not in enum)" % value)
+        elif 'options' in vt.keys():
+            if value in [o['value'] for o in vt['options']]:
+                return self.__set_plain(value)
+            else:
+                raise ValueError("Value %s not allowed (options constraint)" % value)
+    else:
+        raise ValueError("Type of property is string but %s given!" % str(type(value)))
+
+
+def _validate_input_number(self, vt, value):
+    if isinstance(value, float) or isinstance(value, int):
+        if 'minimum' in vt.keys() and value < vt['minimum']:
+            raise ValueError("Value %f violates minimum constraint of %f" % (float(value), float(vt['minimum'])))
+
+        if 'maximum' in vt.keys() and value > vt['maximum']:
+            raise ValueError("Value %f violates maximum constraint of %f" % (float(value), float(vt['maximum'])))
+    else:
+        raise ValueError("Type of property is number but %s given!" % str(type(value)))
+
+
+def _validate_input_object(self, vt, o):
+    if isinstance(o, dict):
+        for prop_name, prop_vt in vt['properties'].items():
+            if prop_name in o.keys():
+                if prop_vt['type'] == 'string':
+                    _validate_input_string(prop_vt, o[prop_name])
+
+                elif prop_vt['type'] == 'number' or prop_vt['type'] == 'integer' or prop_vt['type'] == 'float':
+                    _validate_input_number(prop_vt, o[prop_name])
+
+                elif prop_vt['type'] == 'object':
+                    _validate_input_object(prop_vt, o[prop_name])
+
+            elif prop_name in vt['required']:
+                raise ValueError("Object missing required property %s" % prop_name)
+    else:
+        raise ValueError("Type of property is object but %s given!" % str(type(o)))
+
 
 class TDProperty(object):
 
@@ -106,7 +153,7 @@ class TDProperty(object):
                     return base_url + '/' + self.__prop['hrefs'][i]
         return None
 
-    def value_plain(self):
+    def __value_plain(self):
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
         conn.request('GET', url.path)
@@ -115,6 +162,19 @@ class TDProperty(object):
             return response.read().decode('utf-8')
         else:
             raise Exception("Received %d %s requesting %s" % (response.code, response.status, self.url()))
+
+    def value(self):
+        v = self.__value_plain()
+        vt = self.value_type()
+
+        if vt['type'] == 'number' or vt['type'] == 'float':
+            return float(v)
+        elif vt['type'] == 'integer':
+            return int(v)
+        elif vt['type'] == 'object':
+            return json.loads(v)
+        else:
+            raise Exception("Unknown property type %s" % vt['type'])
 
     def __set_plain(self, value):
         url = urlparse(self.url())
@@ -127,24 +187,18 @@ class TDProperty(object):
             return False
 
     def set(self, value):
-        # TODO implement complex input types.
         vt = self.value_type()
         if vt['type'] == 'string':
-            if isinstance(value, str):
-                # Any constraints?
-                if 'enum' in vt.keys():
-                    if value in vt['enum']:
-                        return self.__set_plain(value)
-                    else:
-                        raise ValueError("Value %s not allowed (not in enum)" % value)
-                elif 'options' in vt.keys():
-                    if value in [o['value'] for o in vt['options']]:
-                        return self.__set_plain(value)
-                    else:
-                        raise ValueError("Value %s not allowed (options constraint)" % value)
-                else:
-                    return self.__set_plain(value)
-            else:
-                raise ValueError("Type of property is string but %s given!" % str(type(value)))
+            with _validate_input_string(vt, value):
+                self.__set_plain(value)
+
+        elif vt['type'] == 'number' or vt['type'] == 'integer' or vt['type'] == 'float':
+            with _validate_input_number(vt, value):
+                self.__set_plain(str(value))
+
+        elif vt['type'] == 'object':
+            with _validate_input_object(vt, value):
+                self.__set_plain(json.dumps(value))
         else:
-            raise Exception("Not yet implemented!")
+            raise Exception("Property has unknown type %s" % vt['type'])
+
