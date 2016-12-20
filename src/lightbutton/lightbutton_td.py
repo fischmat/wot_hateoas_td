@@ -51,7 +51,10 @@ def check_button_status(on_press, button_gpio):
             isButtonPressed = False
 
 def toggle_light_state(onoff_prop):
+    # Get the current value of the light.
+    # dogont:OnOffState states that this is either 'on' or 'off'
     light_state = onoff_prop.value()
+    # Switch state and set the new value:
     if light_state == 'on':
         onoff_prop.set('off')
     else:
@@ -59,6 +62,13 @@ def toggle_light_state(onoff_prop):
 
 
 def get_td(url):
+    """
+    Fetches and deserializes the thing description that can be found at a certain URL.
+    @type url str
+    @param url The URL where the TD is located.
+    @rtype ThingDescription
+    @return The TD.
+    """
     url_parsed = urlparse(url)
 
     conn = httplib.HTTPConnection(url_parsed.netloc)
@@ -69,6 +79,7 @@ def get_td(url):
     else:
         raise Exception("Received %d %s requesting %s" % (response.code, response.status, url))
 
+# Help
 if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interpreter path is always in there)
     print("Room Light switch implementing HATEOAS approach.")
     print("Options:")
@@ -76,6 +87,7 @@ if len(argv) == 1 or '--help' in argv: # If no arguments passed via CLI. (Interp
     print("--button-gpio GPIO: Specifies the GPIO number of the button.")
     quit()
 
+# Validate and process CLI arguments:
 if '--light-url' not in argv or argv.index('--light-url') >= len(argv) - 1:
     stderr.write("Missing required option '--light-url'\n")
     quit()
@@ -93,12 +105,14 @@ if '--port' not in argv or argv.index('--port') < len(argv) - 1:
 else:
     port = int(argv[argv.index('--port') + 1])
 
-light_td = get_td(light_url)
+light_td = get_td(light_url) # Get the thing description at the specified location
 
+# Get the property of the TD that is equivalent to our known On/Off type:
 onoff_prop = light_td.get_property_by_types(['http://elite.polito.it/ontologies/dogont.owl#OnOffState'])
 
 if not onoff_prop:
     stderr.write("Thing has no appropriate property for On/Off state.")
     quit()
 
+# Start periodical checks on the button status and toggle the on/off status:
 check_button_status(toggle_light_state(onoff_prop), button_gpio)

@@ -6,16 +6,28 @@ from src import sparql
 from src.sparql import SPARQLNamespaceRepository
 
 class ThingDescription(object):
+    """
+    Class representing the thing description of a thing.
+    """
 
     __td = dict()
 
     __ns_repo = None
 
     def __init__(self, td):
+        """
+        @param td: The TD as either a JSON-string or deserialized JSON.
+        """
         super().__init__()
+        if isinstance(td, str):
+            td = json.loads(td)
         self.__td = td
 
     def namespace_repository(self):
+        """
+        Returns the namespace repository of the TD.
+        See sparql.SPARQLNamespaceRepository
+        """
         if self.__ns_repo is not None:
             return self.__ns_repo
         else:
@@ -28,6 +40,9 @@ class ThingDescription(object):
 
 
     def get_property_by_name(self, name):
+        """
+        Returns the property with a specific name or None if there is none with this name.
+        """
         for prop in self.__td['properties']:
             if 'name' in prop.keys() and prop['name'] == name:
                 return prop
@@ -52,6 +67,9 @@ class ThingDescription(object):
         return None
 
     def uris(self):
+        """
+        Returns a list of URIs this TD is available at.
+        """
         return self.__td['uris']
 
 
@@ -103,47 +121,85 @@ def _validate_input_object(self, vt, o):
 
 
 class TDProperty(object):
+    """
+    A property of a TD.
+    """
 
-    __td = None
+    __td = None # The ThingDescription this property is part of.
 
-    __prop = dict()
+    __prop = dict() # The propery as deserialized JSON (dict)
 
     def __init__(self, td, prop):
+        """
+        @type td ThingDescription
+        @param td The TD this property belongs to.
+        @type prop dict
+        @param prop The property as deserialized JSON.
+        """
         super().__init__()
         self.__td = td
         self.__prop = prop
 
     def type(self):
+        """
+        @rtype str|None
+        @return The type of this property as a full IRI if there is a @type annotation. Otherwise None.
+        """
         if '@type' in self.__prop.keys():
-            return self.__prop['@type']
+            return self.__td.namespace_repository().resolve(self.__prop['@type'])
         else:
             return None
 
     def name(self):
+        """
+        @rtype str|None
+        @return The name of this property if there is one. Otherwise None.
+        """
         if 'name' in self.__prop.keys():
             return self.__prop['name']
         else:
             return None
 
     def value_type(self):
+        """
+        @rtype dict
+        @return The value type definition of this property as deserialized JSON schema or None
+        if there is no valueType annotation in the TD.
+        """
         if 'valueType' in self.__prop.keys():
             return self.__prop['valueType']
         else:
             return None
 
     def writeable(self):
+        """
+        @rtype bool
+        @return Returns whether this property is writeable (True) or not (False).
+        Returns None if this property has no writable annotation.
+        """
         if 'writeable' in self.__prop.keys():
             return self.__prop['writeable']
         else:
             return None
 
     def hrefs(self):
+        """
+        @rtype list
+        @return The list of relative references to this property.
+        """
         if 'hrefs' in self.__prop.keys():
             return self.__prop['hrefs']
         else:
             return None
 
     def url(self, proto='http'):
+        """
+        Resolves the full URL of the property for a given protocol.
+        @type proto str
+        @param proto The protocol for which an URL should be returned.
+        @rtype str
+        @return Returns the full URL for the given protocol or None if there is none.
+        """
         for i, base_url in enumerate(self.__td.uris()):
             base_url_parsed = urlparse(base_url)
             if base_url_parsed.scheme == proto:
@@ -154,6 +210,10 @@ class TDProperty(object):
         return None
 
     def __value_plain(self):
+        """
+        @rtype str
+        @returns Plain string representation of the value.
+        """
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
         conn.request('GET', url.path)
@@ -164,6 +224,9 @@ class TDProperty(object):
             raise Exception("Received %d %s requesting %s" % (response.code, response.status, self.url()))
 
     def value(self):
+        """
+        @return The value of the property in the type specified in the TD. (e.g. 'number' -> int, 'object' -> dict)
+        """
         v = self.__value_plain()
         vt = self.value_type()
 
@@ -177,6 +240,10 @@ class TDProperty(object):
             raise Exception("Unknown property type %s" % vt['type'])
 
     def __set_plain(self, value):
+        """
+        @type value str
+        @param value The plain string representation of the value to set.
+        """
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
         conn.request('POST', url.path, body=value)
@@ -187,6 +254,12 @@ class TDProperty(object):
             return False
 
     def set(self, value):
+        """
+        Validates an value whether it satisfies the constraints given by the TD and sets it.
+        @type value str|float|int|dict
+        @param value The value to set (of required type and format).
+        @raise ValueError If value does not satisfy the constraints given by the TD.
+        """
         vt = self.value_type()
         if vt['type'] == 'string':
             with _validate_input_string(vt, value):
