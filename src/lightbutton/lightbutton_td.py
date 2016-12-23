@@ -107,12 +107,13 @@ else:
 
 light_td = get_td(light_url) # Get the thing description at the specified location
 
-# Get the property of the TD that is equivalent to our known On/Off type:
-onoff_prop = light_td.get_property_by_types(['http://elite.polito.it/ontologies/dogont.owl#OnOffState'])
+if light_td.type_equivalent_to(['http://elite.polito.it/ontologies/dogont.owl#Lighting']):
+    # Get the property of the TD that is equivalent to our known On/Off type:
+    onoff_prop = light_td.get_property_by_types(['http://elite.polito.it/ontologies/dogont.owl#OnOffState'])
 
-if not onoff_prop:
-    stderr.write("Thing has no appropriate property for On/Off state.")
-    quit()
+    if not onoff_prop:
+        stderr.write("Thing has no appropriate property for On/Off state.")
+        quit()
 
-# Start periodical checks on the button status and toggle the on/off status:
-check_button_status(toggle_light_state(onoff_prop), button_gpio)
+    # Start periodical checks on the button status and toggle the on/off status:
+    check_button_status(toggle_light_state(onoff_prop), button_gpio)

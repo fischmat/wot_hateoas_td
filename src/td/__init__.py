@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from http.client import HTTPConnection
 from urllib.parse import urlparse
 
@@ -38,6 +39,21 @@ class ThingDescription(object):
                         self.__ns_repo.register(shorthand, prefix)
             return self.__ns_repo
 
+    def type_equivalent_to(self, types):
+        """
+        Checks whether the @type of this thing is equvalent to any of the given types.
+        @param types List of IRIs (either full or shorthands with prefixes defined in this TD)
+        @return Returns True if any of the types given is equivalent to @type of this TD. Returns False
+        if none of them is or @type is not set in this TD.
+        """
+        if '@type' in self.__td.keys():
+            for type in types:
+                if sparql.classes_equivalent(self.__ns_repo.resolve(self.__td['@type'],
+                                                                    self.__ns_repo.resolve(type))):
+                    return True
+            return False
+        else:
+            return False
 
     def get_property_by_name(self, name):
         """
@@ -119,6 +135,28 @@ def _validate_input_object(self, vt, o):
     else:
         raise ValueError("Type of property is object but %s given!" % str(type(o)))
 
+def _is_url(s):
+    """
+    Checks whether s is an URL.
+    @return True if s is an URL. False otherwise.
+    """
+    parsed = urlparse(s)
+    if parsed.netloc:
+        return True
+    else:
+        return False
+
+def _ns_resolve_input_type(input_type, ns_repo):
+    if isinstance(input_type, dict):
+        input_type_copy = {}
+        for key in input_type.keys():
+            input_type_copy[_ns_resolve_input_type(key, ns_repo)] = _ns_resolve_input_type(input_type[key], ns_repo)
+        return input_type_copy
+
+    elif isinstance(input_type, str) and _is_url(input_type):
+        return ns_repo.resolve(input_type)
+    else:
+        return deepcopy(input_type)
 
 class TDProperty(object):
     """
@@ -167,7 +205,7 @@ class TDProperty(object):
         if there is no valueType annotation in the TD.
         """
         if 'valueType' in self.__prop.keys():
-            return self.__prop['valueType']
+            return _ns_resolve_input_type(self.__prop['valueType'], self.__td.namespace_repository())
         else:
             return None
 
@@ -275,3 +313,106 @@ class TDProperty(object):
         else:
             raise Exception("Property has unknown type %s" % vt['type'])
 
+class TDAction:
+    """
+        An action of a TD.
+        """
+
+    __td = None  # The ThingDescription this action is part of.
+
+    __action = dict()  # The action as deserialized JSON (dict)
+
+    def __init__(self, td, action):
+        self.__td = td
+        self.__action = action
+
+    def type(self):
+        if '@type' in self.__action.keys():
+            return self.__td.namespace_repository().resolve(self.__action['@type'])
+        else:
+            return None
+
+    def name(self):
+        if 'name' in self.__action.keys():
+            return self.__action['name']
+        else:
+            return None
+
+    def input_value_type(self):
+        if 'inputData' in self.__action.keys():
+            return _ns_resolve_input_type(self.__action['inputData'], self.__td.namespace_repository())
+        else:
+            return None
+
+    def output_value_type(self):
+        if 'outputData' in self.__action.keys():
+            return _ns_resolve_input_type(self.__action['outputData'], self.__td.namespace_repository())
+        else:
+            return None
+
+    def hrefs(self):
+        """
+        @rtype list
+        @return The list of relative references to this action.
+        """
+        if 'hrefs' in self.__action.keys():
+            return self.__action['hrefs']
+        else:
+            return None
+
+    def url(self, proto='http'):
+        """
+        Resolves the full URL of the action for a given protocol.
+        @type proto str
+        @param proto The protocol for which an URL should be returned.
+        @rtype str
+        @return Returns the full URL for the given protocol or None if there is none.
+        """
+        for i, base_url in enumerate(self.__td.uris()):
+            base_url_parsed = urlparse(base_url)
+            if base_url_parsed.scheme == proto:
+                hrefs = self.hrefs()
+                if hrefs is not None:
+                    if base_url[-1] == '/':
+                        return base_url + hrefs[i]
+                    else:
+                        return base_url + '/' + hrefs[i]
+        return None
+
+    def __invoke_plain(self, plain_data):
+        url = urlparse(self.url())
+        conn = HTTPConnection(url.netloc)
+        conn.request('POST', url.path, body=plain_data)
+        response = conn.getresponse()
+        if response.code != 200:
+            raise Exception("Received error code %d %s when invoking action %s" % (response.code, response.status, self.url()))
+        else:
+            ovt = self.output_value_type()
+            output_plain = response.read().decode('utf-8')
+            if ovt:
+                if ovt['type'] == 'string':
+                    return output_plain
+                elif ovt['type'] == 'number' or ovt['type'] == 'integer' or ovt['type'] == 'float':
+                    return float(output_plain)
+                elif ovt['type'] == 'object':
+                    return json.loads(output_plain)
+                else:
+                    raise Exception("Action has unknown output data type %s" % ovt['type'])
+            else:
+                return output_plain
+
+    def invoke(self, input_data):
+        ivt = self.input_value_type()
+        if ivt['type'] == 'string':
+            with _validate_input_string(ivt, input_data):
+                self.__invoke_plain(input_data)
+
+        elif ivt['type'] == 'number' or ivt['type'] == 'integer' or ivt['type'] == 'float':
+            with _validate_input_number(ivt, input_data):
+                self.__invoke_plain(str(input_data))
+
+        elif ivt['type'] == 'object':
+            with _validate_input_object(ivt, input_data):
+                self.__invoke_plain(json.dumps(input_data))
+        else:
+            raise Exception("Action has unknown input data type %s" % ivt['type'])
