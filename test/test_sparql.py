@@ -6,7 +6,8 @@ from src.sparql import SPARQLNamespaceRepository, UnknownPrefixException
 
 class Test_Sparql(TestCase):
     def test_equivalent_classes(self):
-        self.assertEqual(sparql.equivalent_classes('http://purl.org/iot/vocab/m3-lite#Thermometer'),
+        self.assertEqual(sparql.equivalent_classes('http://purl.org/iot/vocab/m3-lite#Thermometer',
+                                                    endpoint = 'http://lov.okfn.org/dataset/lov/sparql'),
                          ['http://purl.oclc.org/NET/ssnx/meteo/aws#TemperatureSensor',
                           'http://casas.wsu.edu/owl/cose.owl#TempuratureSensor'])
 

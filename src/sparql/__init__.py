@@ -3,7 +3,10 @@
 # The endpoint used is lov.okfn.org
 from urllib.parse import urlparse
 
-from requests import post
+from SPARQLWrapper import SPARQLWrapper, JSON
+
+# The URL of the default SPARQL endpoint. Assume Bigdata Blazegraph is runn
+DEFAULT_SPARQL_ENDPOINT = 'http://localhost:9999/bigdata/namespace/wotkb/sparql'
 
 class SparqlException(Exception):
     """
@@ -67,32 +70,34 @@ class SPARQLNamespaceRepository(object):
             raise ValueError('%s is not a valid IRI-shorthand.' % shorthand)
 
 
-def __query(q):
+def __query(q, endpoint = DEFAULT_SPARQL_ENDPOINT):
     """
     Files a query to the SPARQL-endpoint at lov.okfn.org
     @type q: str
     @param q: A SPARQL query.
+    @type endpoint str
+    @param endpoint URL of the SPARQL endpoint to query.
     @rtype: dict|None
     @return: The response of the endpoint or None on error or malformed query.
     """
-    headers = {
-        'Accept': 'application/sparql-results+json,*/*;q=0.9',
-        'User-Agent': 'WoT TD Resolver'
-    }
-    r = post('http://lov.okfn.org/dataset/lov/sparql', data={'query': q}, headers=headers)
+    sparql = SPARQLWrapper(endpoint, returnFormat=JSON)
+    sparql.setQuery(q)
+    r = sparql.query().convert()
 
-    if r:
-        return r.json()
+    if isinstance(r, dict): # Check whether JSON conversion was successful
+        return r
     else:
-        return None
+        raise SparqlException("SPARQL endpoint %s does not support JSON return format." % endpoint)
 
 
-def equivalent_classes(iri):
+def equivalent_classes(iri, endpoint = DEFAULT_SPARQL_ENDPOINT):
     """
     Queries the SPARQL-endpoint at lov.okfn.org for classes/resources that are equal to the one given.
     Takes equivalency by the transitive closure of rdfs:seeAlso, owl:sameAs and owl:equivalentClass into account.
     @type iri: str
     @param iri: The IRI of the class for which equivalent classes should be found.
+    @type endpoint str
+    @param endpoint URL of the SPARQL endpoint to query.
     @rtype: list
     @return: List of the IRIs of equivalent classes.
     @raise SparqlException: Raised if the internally constructed query is malformed or the response of the endpoint is.
@@ -108,7 +113,7 @@ def equivalent_classes(iri):
                  UNION { ?o owl:equivalentClass+ <' + iri + '> .}}'
 
     try:
-        r = __query(q)
+        r = __query(q, endpoint)
     except ValueError:
         raise SparqlException('Malformed query: %s' % q)
 
@@ -122,7 +127,7 @@ def equivalent_classes(iri):
         raise SparqlException('Malformed response')
 
 
-def classes_equivalent(iri1, iri2):
+def classes_equivalent(iri1, iri2, endpoint = DEFAULT_SPARQL_ENDPOINT):
     """
     Queries the SPARQL-endpoint at lov.okfn.org for equivalency of two classes/resources.
     Takes equivalency by the transitive closure of rdfs:seeAlso, owl:sameAs and owl:equivalentClass into account.
@@ -130,6 +135,8 @@ def classes_equivalent(iri1, iri2):
     @param iri1: The IRI of the first class/resource.
     @type iri2: str
     @param iri2: The IRI of the second class/resource.
+    @type endpoint str
+    @param endpoint URL of the SPARQL endpoint to query.
     @rtype: bool
     @return: Returns true if the classes/resources are equivalent.
     @raise SparqlException: Raised if the internally constructed query is malformed or the response of the endpoint is.
@@ -137,7 +144,8 @@ def classes_equivalent(iri1, iri2):
     q = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#> \
         PREFIX owl: <http://www.w3.org/2002/07/owl#> \
         ASK {\
-                 { <' + iri1 + '> rdfs:seeAlso+ <' + iri2 + '> .} \
+                 { <' + iri1 + '> rdfs:seeAlso ?samid . \
+                   ?samid rdfs:seeAlso* <' + iri2 + '> } \
                 UNION { <' + iri1 + '> owl:sameAs+ <' + iri2 + '> . } \
                  UNION { <' + iri1 + '> owl:equivalentClass+ <' + iri2 + '> .} \
                 UNION { <' + iri2 + '> rdfs:seeAlso+ <' + iri1 + '>.} \
@@ -146,7 +154,7 @@ def classes_equivalent(iri1, iri2):
         }'
 
     try:
-        r = __query(q)
+        r = __query(q, endpoint)
     except ValueError:
         raise SparqlException('Malformed query %s' % q)
 
