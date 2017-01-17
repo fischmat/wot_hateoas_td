@@ -50,10 +50,6 @@ class PingFailureDetector(FailureDetector):
         super().__init__(netloc, failure_callback)
         self.interval = interval
 
-        thread = threading.Thread(target=self._check, args=())
-        thread.daemon = True
-        thread.start()
-
     def _check(self):
         while True:
             try:
@@ -68,3 +64,8 @@ class PingFailureDetector(FailureDetector):
                 self.failure_callback(self)
                 self.failure_callback_called = True
             time.sleep(self.interval/1000.0)
+
+    def start(self):
+        thread = threading.Thread(target=self._check, args=())
+        thread.daemon = True
+        thread.start()
