@@ -5,19 +5,86 @@ class UnknownSemanticsException(Exception):
         super().__init__(*args, **kwargs)
 
 
-class InputTypeBuilder(object):
+class TDInputBuilder(object):
+    """
+    Builds the input for TD actions.
+    Therefore rules what values are desired can be defined and afterwards the input can be automatically determined.
+    """
 
+    # Rules for 'free-text' fields
     __value_rules = []
 
+    # Rules for fields with 'option' constraints
     __option_rules = []
 
     def add_value_rule(self, domain, type, value):
+        """
+        Adds an rule how to process 'free-text' fields.
+        Note that values datatype must also match the one of the type description.
+
+        Example:
+        ib = TDInputBuilder()
+        ib.add_value_rule('http://someont.de/#Duration', 'http://someont.de/#Second', 5)
+        ib.add_value_rule('http://someont.de/#Duration', 'http://someont.de/#Millisecond', 5000)
+        input_params = ib.build(some_action)
+
+        This e.g. sets the value accordingly for:
+        {
+            "type": "integer",
+            "dbo:Duration": "dbr:Second"
+        }
+        or for
+        {
+            "type": "integer",
+            "dbo:Duration": "dbr:Millisecond"
+        }
+        given the according mappings at the SPARQL endpoint used.
+
+        @type domain str
+        @param domain Full IRI the fields value domain must be equivalent to.
+        @type type str
+        @param type Full IRI the fields value must be equivalent to.
+        @param value The value to set in this specific situation.
+        """
         self.__value_rules.append((domain, type, value))
 
     def add_option_rule(self, domain, type):
+        """
+        Adds an rule how to process fields with 'options' constraints.
+
+        Example:
+        ib = TDInputBuilder()
+        ib.add_option_rule('http://someont.de/#Color', 'http://someont.de/#Red')
+        input_params = ib.build(some_action)
+
+        This sets the value of the field with the following type description to "#ff0000"
+        {
+            "type": "string",
+            "options": [
+                {
+                    "value": "#0000ff",
+                    "dbo:Colour": "dbr:Blue"
+                },
+                {
+                    "value": "#ff0000",
+                    "dbo:Colour": "dbr:Red"
+                }
+            ]
+        }
+        given the according mappings at the SPARQL endpoint used.
+
+        @type domain str
+        @param domain Full IRI of the fields value domain.
+        @type type str
+        @param type Full IRI of the fields value type.
+        """
         self.__option_rules.append((domain, type))
 
     def __dispatch_value_field(self, ns_repo, key, value, datatype):
+        """
+        Determines the value of a 'free-text' field using the rules given.
+        @return Returns the value imposed by an applicable rule or None if no rule was applicable.
+        """
         domain = ns_repo.resolve(key)
         type = ns_repo.resolve(value)
         for rule_domain, rule_type, rule_value in self.__value_rules:
@@ -31,6 +98,10 @@ class InputTypeBuilder(object):
         return None
 
     def __dispatch_options_field(self, ns_repo, options):
+        """
+        Determines the value of a 'options' constrained field using the rules given.
+        @return Returns the value imposed by an applicable rule or None if no rule was applicable.
+        """
         for option in options:
             for key, value in option.items():
                 if key != 'value':
@@ -42,6 +113,12 @@ class InputTypeBuilder(object):
         return None
 
     def __dispatch_type_description(self, ns_repo, it):
+        """
+        Determines the values of the fields using the given type description and the rules registered.
+        @return The determined input. (Either primitive type or dict if it['type'] is 'object')
+        @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
+        not be determined or if 'it' describes an object and the latter case is given for any required property.
+        """
         if it['type'] != 'object':
             for key, value in it.items():
                 if key == 'options':
@@ -68,6 +145,12 @@ class InputTypeBuilder(object):
             return o
 
     def build(self, action):
+        """
+        Determines the values of the fields using the actions type description and the rules registered.
+        @return The determined input. (Either primitive type or dict if it['type'] is 'object')
+        @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
+        not be determined or if 'it' describes an object and the latter case is given for any required property.
+        """
         it = action.input_type()
         ns_repo = action.get_td().namespace_repository()
 
