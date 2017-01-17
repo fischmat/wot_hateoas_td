@@ -308,6 +308,13 @@ class TDProperty(object):
         self.__td = td
         self.__prop = prop
 
+    def get_td(self):
+        """
+        @rtype ThingDescription
+        @return The thing description this property belongs to.
+        """
+        return self.__td
+
     def type(self):
         """
         @rtype str|None
@@ -456,6 +463,13 @@ class TDAction:
         self.__td = td
         self.__action = action
 
+    def get_td(self):
+        """
+        @rtype ThingDescription
+        @return The thing description this action belongs to.
+        """
+        return self.__td
+
     def type(self):
         if '@type' in self.__action.keys():
             return self.__td.namespace_repository().resolve(self.__action['@type'])
@@ -566,6 +580,13 @@ class TDEvent(object):
         super().__init__()
         self.__td = td
         self.__event = event
+
+    def get_td(self):
+        """
+        @rtype ThingDescription
+        @return The thing description this event belongs to.
+        """
+        return self.__td
 
     def type(self):
         """
