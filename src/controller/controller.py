@@ -8,7 +8,7 @@ import time
 from src import sparql
 from src.failuredetection import PingFailureDetector
 from src.netscan import HostListScanner
-from src.semantics import InputTypeBuilder, UnknownSemanticsException
+from src.semantics import TDInputBuilder, UnknownSemanticsException
 from src.td import ThingDescription
 
 # Configuration. Location of the different things:
@@ -31,29 +31,6 @@ class AlarmSystem(object):
 
     last_auth_time = datetime.datetime(1970, 1, 1, 0, 0, 0)
 
-    def __build_alarm_action_params(self, action):
-        """
-        Tries to determine the semantics of the input type of a alarm action.
-        @type action TDAction
-        @param action The alarm action to construct input data for.
-        @rtype dict
-        @return Input data for the given alarm action.
-        """
-        it = action.input_type()  # Get input type description
-        ns_repo = action.get_td().namespace_repository()
-
-        if it['type'] == 'number':
-            # Determine semantics for this boolean value:
-            for key, value in it.items():
-                if key != 'type' and sparql.classes_equivalent(ns_repo.resolve(key),
-                                                               'http://www.matthias-fisch.de/ontologies/wot#Duration'):
-                    # So this is the duration of the alarm...
-                    # Determine its unit:
-                    if sparql.classes_equivalent(ns_repo.resolve(value), 'http://dbpedia.org/resource/Second'):
-                        return self.alarm_duration_secs
-                    elif sparql.classes_equivalent(ns_repo.resolve(value), 'http://dbpedia.org/resource/Millisecond'):
-                        return self.alarm_duration_secs * 1000
-
     def on_door_opened(self, is_opened):
         if is_opened:  # If the door is opened and not closed
             # Calculate seconds since last authentication:
@@ -62,7 +39,7 @@ class AlarmSystem(object):
             if secs <= self.auth_ttl_secs:  # Permission case
                 welcome_action = self.alarm_source.get_action_by_types(['http://www.matthias-fisch.de/ontologies/wot#PlaybackAction'])
                 if welcome_action:
-                    pb = InputTypeBuilder()
+                    pb = TDInputBuilder()
                     pb.add_option_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile', 'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
 
                     try:
@@ -78,7 +55,7 @@ class AlarmSystem(object):
                 alarm_action = self.alarm_source.get_action_by_types(
                     ['http://www.matthias-fisch.de/ontologies/wot#AlarmAction'])
 
-                pb = InputTypeBuilder()
+                pb = TDInputBuilder()
                 pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
                                        'http://dbpedia.org/resource/Second', self.alarm_duration_secs)
                 pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
@@ -95,6 +72,7 @@ class AlarmSystem(object):
 
     def on_authentication(self, data):
         self.last_auth_time = datetime.datetime.strptime(data['time'], "%d-%m-%Y %H:%M:%S")
+        print("Entry authenticated at %s for %d seconds..." % (self.last_auth_time.strftime("%d-%m-%Y %H:%M:%S"), self.auth_ttl_secs))
 
 
 def get_td(url):
