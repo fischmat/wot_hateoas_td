@@ -1,0 +1,147 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://www.matthias-fisch.de/ontologies/wot#"
+     xml:base="http://www.matthias-fisch.de/ontologies/wot"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#">
+    <owl:Ontology rdf:about="http://www.matthias-fisch.de/ontologies/wot"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Action -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Action"/>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#AlarmAction -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#AlarmAction">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
+        <rdfs:comment>Invokes some sort of alarm.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#AlarmAction"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#AlarmingDevice -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#AlarmingDevice">
+        <rdfs:comment>A device capable of invoking an alarm.</rdfs:comment>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Authenticator -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Authenticator">
+        <rdfs:comment xml:lang="en">A thing providing authentication services.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://ns.inria.fr/ludo/v1/xapi#Authentication"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Door -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Door">
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#Door"/>
+        <rdfs:seeAlso rdf:resource="http://purl.org/iot/vocab/m3-lite#Door"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Event"/>
+        <rdfs:comment xml:lang="en">Whether entry is permitted.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://creativecommons.org/ns#Permission"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#DoorOpenEvent -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#DoorOpenEvent">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Event"/>
+        <rdfs:seeAlso rdf:resource="http://w3id.org/charta77/jup/DoorOpening"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Event -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Event"/>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Light -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Light">
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#Lighting"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#LightColorState -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#LightColorState">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+        <rdfs:comment xml:lang="en">The color of a thing.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#ColorState"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#OnOffState -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#OnOffState">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+        <rdfs:comment xml:lang="en">The state of a thing in terms of on and off.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OnOffState"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Property -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#StartFlashingAction -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#StartFlashingAction">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
+        <rdfs:comment xml:lang="en">Start some sort of flashing.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OnFlashingCommand"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#StopFlashingAction -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#StopFlashingAction">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
+        <rdfs:comment xml:lang="en">Stop some sort of flashing.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OffFlashingCommand"/>
+    </owl:Class>
+</rdf:RDF>
+
+
+
+<!-- Generated by the OWL API (version 4.2.6.20160910-2108) https://github.com/owlcs/owlapi -->
+
