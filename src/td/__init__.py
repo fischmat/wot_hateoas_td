@@ -667,6 +667,7 @@ class EventSubscription(object):
         self.__valid = True
         self.__error_callback = None
 
+    def start(self):
         # Start polling routine as new daemon thread:
         poll_thread = threading.Thread(self.__poll, args=())
         poll_thread.daemon = True
