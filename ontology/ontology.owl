@@ -134,6 +134,12 @@
     
 
 
+    <!-- http://www.matthias-fisch.de/ontologies/wot#SoundFile -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#SoundFile"/>
+    
+
+
     <!-- http://www.matthias-fisch.de/ontologies/wot#Speaker -->
 
     <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Speaker">
@@ -160,6 +166,14 @@
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
         <rdfs:comment xml:lang="en">Stop some sort of flashing.</rdfs:comment>
         <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OffFlashingCommand"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#WelcomeSound -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#WelcomeSound">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#SoundFile"/>
     </owl:Class>
 </rdf:RDF>
 
