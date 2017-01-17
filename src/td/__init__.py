@@ -233,7 +233,7 @@ def _validate_input_string(self, vt, value):
             else:
                 raise ValueError("Value %s not allowed (options constraint)" % value)
     else:
-        raise ValueError("Type of property is string but %s given!" % str(type(value)))
+        raise ValueError("Value type definition imposes string but %s given!" % str(type(value)))
 
 
 def _validate_input_number(self, vt, value):
@@ -244,7 +244,7 @@ def _validate_input_number(self, vt, value):
         if 'maximum' in vt.keys() and value > vt['maximum']:
             raise ValueError("Value %f violates maximum constraint of %f" % (float(value), float(vt['maximum'])))
     else:
-        raise ValueError("Type of property is number but %s given!" % str(type(value)))
+        raise ValueError("Value type definition imposes number but %s given!" % str(type(value)))
 
 
 def _validate_input_object(self, vt, o):
@@ -263,7 +263,7 @@ def _validate_input_object(self, vt, o):
             elif prop_name in vt['required']:
                 raise ValueError("Object missing required property %s" % prop_name)
     else:
-        raise ValueError("Type of property is object but %s given!" % str(type(o)))
+        raise ValueError("Value type definition imposes object but %s given!" % str(type(o)))
 
 def _is_url(s):
     """
@@ -287,6 +287,25 @@ def _ns_resolve_input_type(input_type, ns_repo):
         return ns_repo.resolve(input_type)
     else:
         return deepcopy(input_type)
+
+def _parse_raw_response(v, vt):
+    """
+    Converts an response of a thing (e.g. property value) to the datatype corresponding the valueType definition given.
+    @type v str
+    @param v Raw value.
+    @type vt dict
+    @param vt The value type definition for v.
+    @return The parsed value.
+    @raise Exception Raised if the value type definition imposes an unknown type.
+    """
+    if vt['type'] == 'number' or vt['type'] == 'float':
+        return float(v)
+    elif vt['type'] == 'integer':
+        return int(v)
+    elif vt['type'] == 'object':
+        return json.loads(v)
+    else:
+        raise Exception("Value type definition imposes unknown type %s" % vt['type'])
 
 class TDProperty(object):
     """
@@ -405,14 +424,7 @@ class TDProperty(object):
         v = self.__value_plain()
         vt = self.value_type()
 
-        if vt['type'] == 'number' or vt['type'] == 'float':
-            return float(v)
-        elif vt['type'] == 'integer':
-            return int(v)
-        elif vt['type'] == 'object':
-            return json.loads(v)
-        else:
-            raise Exception("Unknown property type %s" % vt['type'])
+        return _parse_raw_response(v, vt)
 
     def __set_plain(self, value):
         """
@@ -531,33 +543,28 @@ class TDAction:
         if response.code != 200:
             raise Exception("Received error code %d %s when invoking action %s" % (response.code, response.status, self.url()))
         else:
-            ovt = self.output_value_type()
-            output_plain = response.read().decode('utf-8')
-            if ovt:
-                if ovt['type'] == 'string':
-                    return output_plain
-                elif ovt['type'] == 'number' or ovt['type'] == 'integer' or ovt['type'] == 'float':
-                    return float(output_plain)
-                elif ovt['type'] == 'object':
-                    return json.loads(output_plain)
-                else:
-                    raise Exception("Action has unknown output data type %s" % ovt['type'])
-            else:
-                return output_plain
+            return response.read().decode('utf-8')
 
     def invoke(self, input_data):
         ivt = self.input_value_type()
+        ovt = self.output_value_type()
         if ivt['type'] == 'string':
             with _validate_input_string(ivt, input_data):
-                self.__invoke_plain(input_data)
+                out_plain = self.__invoke_plain(input_data)
+                if ovt:
+                    return _parse_raw_response(out_plain, ovt)
 
         elif ivt['type'] == 'number' or ivt['type'] == 'integer' or ivt['type'] == 'float':
             with _validate_input_number(ivt, input_data):
-                self.__invoke_plain(str(input_data))
+                out_plain = self.__invoke_plain(str(input_data))
+                if ovt:
+                    return _parse_raw_response(out_plain, ovt)
 
         elif ivt['type'] == 'object':
             with _validate_input_object(ivt, input_data):
-                self.__invoke_plain(json.dumps(input_data))
+                out_plain = self.__invoke_plain(json.dumps(input_data))
+                if ovt:
+                    return _parse_raw_response(out_plain, ovt)
         else:
             raise Exception("Action has unknown input data type %s" % ivt['type'])
 
