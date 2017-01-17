@@ -82,6 +82,24 @@ class ThingDescription(object):
                             return TDProperty(self, prop)
         return None
 
+    def get_action_by_types(self, types):
+        """
+        Returns actions equivalent to any of the given types.
+        @param types List of IRIs.
+        @return Any action equivalent to any given type or None if none found.
+        """
+        ns_repo = self.namespace_repository()
+
+        for action in self.__td['actions']:
+            if '@type' in action.keys():
+                if ns_repo.resolve(action['@type']) in types:
+                    return TDAction(self, action)
+                else:
+                    for type in types:
+                        if sparql.classes_equivalent(type, ns_repo.resolve(action['@type'])):
+                            return TDAction(self, action)
+        return None
+
     def uris(self):
         """
         Returns a list of URIs this TD is available at.
