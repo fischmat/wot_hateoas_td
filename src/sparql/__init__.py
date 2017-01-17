@@ -92,7 +92,7 @@ def __query(q, endpoint = DEFAULT_SPARQL_ENDPOINT):
 
 def equivalent_classes(iri, endpoint = DEFAULT_SPARQL_ENDPOINT):
     """
-    Queries the SPARQL-endpoint at lov.okfn.org for classes/resources that are equal to the one given.
+    Queries the SPARQL-endpoint for classes/resources that are equal to the one given.
     Takes equivalency by the transitive closure of rdfs:seeAlso, owl:sameAs and owl:equivalentClass into account.
     @type iri: str
     @param iri: The IRI of the class for which equivalent classes should be found.
@@ -129,7 +129,7 @@ def equivalent_classes(iri, endpoint = DEFAULT_SPARQL_ENDPOINT):
 
 def classes_equivalent(iri1, iri2, endpoint = DEFAULT_SPARQL_ENDPOINT):
     """
-    Queries the SPARQL-endpoint at lov.okfn.org for equivalency of two classes/resources.
+    Queries the SPARQL-endpoint for equivalency of two classes/resources.
     Takes equivalency by the transitive closure of rdfs:seeAlso, owl:sameAs and owl:equivalentClass into account.
     @type iri1: str
     @param iri1: The IRI of the first class/resource.
@@ -147,11 +147,71 @@ def classes_equivalent(iri1, iri2, endpoint = DEFAULT_SPARQL_ENDPOINT):
                  { <' + iri1 + '> rdfs:seeAlso ?samid . \
                    ?samid rdfs:seeAlso* <' + iri2 + '> } \
                 UNION { <' + iri1 + '> owl:sameAs+ <' + iri2 + '> . } \
-                 UNION { <' + iri1 + '> owl:equivalentClass+ <' + iri2 + '> .} \
+                UNION { <' + iri1 + '> owl:equivalentClass+ <' + iri2 + '> .} \
                 UNION { <' + iri2 + '> rdfs:seeAlso+ <' + iri1 + '>.} \
                 UNION { <' + iri2 + '> owl:sameAs+ <' + iri1 + '> . } \
-                 UNION { <' + iri2 + '> owl:equivalentClass+ <' + iri1 + '> .} \
+                UNION { <' + iri2 + '> owl:equivalentClass+ <' + iri1 + '> .} \
         }'
+
+    try:
+        r = __query(q, endpoint)
+    except ValueError:
+        raise SparqlException('Malformed query %s' % q)
+
+    if 'boolean' in r:
+        return r['boolean']
+    else:
+        raise SparqlException('Malformed response')
+
+def shared_superclasses(iri1, iri2, endpoint = DEFAULT_SPARQL_ENDPOINT):
+    """
+    Queries the SPARQL endpoint for common superclasses. Those can have any distance in the inheritance tree.
+    @param iri1: The IRI of the first class/resource.
+    @type iri2: str
+    @param iri2: The IRI of the second class/resource.
+    @type endpoint str
+    @param endpoint URL of the SPARQL endpoint to query.
+    @rtype list
+    @return A list of the IRIs of common superclasses.
+    """
+    q = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>\
+         PREFIX owl: <http://www.w3.org/2002/07/owl#>\
+         SELECT DISTINCT ?super { \
+              <' + iri1 + '> rdfs:subClassOf+ ?super . \
+              <' + iri2 + '> rdfs:subClassOf+ ?super . \
+         }'
+
+    try:
+        r = __query(q, endpoint)
+    except ValueError:
+        raise SparqlException('Malformed query: %s' % q)
+
+    if r and 'results' in r and 'bindings' in r['results']:
+        common_supers = []
+        for binding in r['results']['bindings']:
+            if 'super' in binding and binding['super']['type'] == 'uri':
+                common_supers.append(binding['super']['value'])
+        return common_supers
+    else:
+        raise SparqlException('Malformed response')
+
+def has_type(iri, type_iri, endpoint = DEFAULT_SPARQL_ENDPOINT):
+    """
+    Queries the SPARQL endpoint if a class is a subclass of a given type.
+    @param iri: The IRI of the first class/resource.
+    @type iri: str
+    @param type_iri: The IRI of the type to check for.
+    @type type_iri str
+    @type endpoint str
+    @param endpoint URL of the SPARQL endpoint to query.
+    @rtype list
+    @return Returns True iff iri is a subclass of type_iri.
+    """
+    q = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#>\
+         PREFIX owl: <http://www.w3.org/2002/07/owl#>\
+         ASK { \
+              <' + iri + '> rdfs:subClassOf+ <' + type_iri + '> . \
+         }'
 
     try:
         r = __query(q, endpoint)

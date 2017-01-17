@@ -1,7 +1,17 @@
+# Module td
+# Provides classes for convinient handling Thing Description
+#
+# Author: Matthias Fisch
+#
+#
+
 import json
+import threading
 from copy import deepcopy
 from http.client import HTTPConnection
 from urllib.parse import urlparse
+
+import time
 
 from src import sparql
 from src.sparql import SPARQLNamespaceRepository
@@ -99,6 +109,108 @@ class ThingDescription(object):
                         if sparql.classes_equivalent(type, ns_repo.resolve(action['@type'])):
                             return TDAction(self, action)
         return None
+
+    def get_event_by_types(self, types):
+        """
+        Returns events equivalent to any of the given types.
+        @param types List of IRIs.
+        @return Any event equivalent to any given type or None if none found.
+        """
+        ns_repo = self.namespace_repository()
+
+        for event in self.__td['events']:
+            if '@type' in event.keys():
+                if ns_repo.resolve(event['@type']) in types:
+                    return TDEvent(self, event)
+                else:
+                    for type in types:
+                        if sparql.classes_equivalent(type, ns_repo.resolve(event['@type'])):
+                            return TDEvent(self, event)
+        return None
+
+    def has_all_properties_of(self, types):
+        """
+        Checks if this thing has an equivalent property for any of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent property for every given type.
+        """
+        ns_repo = self.namespace_repository()
+
+        for type in types:
+            found_matching_prop = False
+            for prop in self.__td['properties']:
+                if '@type' in prop.keys():
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(prop['@type'])):
+                        found_matching_prop = True
+            if not found_matching_prop:
+                return False
+        return True
+
+    def has_any_property_of(self, types):
+        """
+        Checks if this thing has an equivalent property for at least one of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent property for at least one of the given types.
+        """
+        return self.get_property_by_types(types) is not None
+
+    def has_all_actions_of(self, types):
+        """
+        Checks if this thing has an equivalent action for any of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent action for every given type.
+        """
+        ns_repo = self.namespace_repository()
+
+        for type in types:
+            found_matching_action = False
+            for action in self.__td['actions']:
+                if '@type' in action.keys():
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(action['@type'])):
+                        found_matching_action = True
+            if not found_matching_action:
+                return False
+        return True
+
+    def has_any_action_of(self, types):
+        """
+        Checks if this thing has an equivalent action for at least one of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent action for at least one of the given types.
+        """
+        return self.get_action_by_types(types) is not None
+
+    def has_all_events_of(self, types):
+        """
+        Checks if this thing has an equivalent event for any of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent event for every given type.
+        """
+        ns_repo = self.namespace_repository()
+
+        for type in types:
+            found_matching_event = False
+            for event in self.__td['events']:
+                if '@type' in event.keys():
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(event['@type'])):
+                        found_matching_event = True
+            if not found_matching_event:
+                return False
+        return True
+
+    def has_any_event_of(self, types):
+        """
+        Checks if this thing has an equivalent event for at least one of the given types.
+        @param types List of IRIs.
+        @rtype bool
+        @return Returns True iff there is an equivalent event for at least one of the given types.
+        """
+        return self.get_event_by_types(types) is not None
 
     def uris(self):
         """
@@ -333,8 +445,8 @@ class TDProperty(object):
 
 class TDAction:
     """
-        An action of a TD.
-        """
+    An action of a TD.
+    """
 
     __td = None  # The ThingDescription this action is part of.
 
@@ -434,3 +546,159 @@ class TDAction:
                 self.__invoke_plain(json.dumps(input_data))
         else:
             raise Exception("Action has unknown input data type %s" % ivt['type'])
+
+class TDEvent(object):
+    """
+    An event of a TD.
+    """
+
+    __td = None  # The ThingDescription this event is part of.
+
+    __event = dict()  # The event as deserialized JSON (dict)
+
+    def __init__(self, td, event):
+        """
+        @type td ThingDescription
+        @param td The TD this event belongs to.
+        @type event dict
+        @param event The event as deserialized JSON.
+        """
+        super().__init__()
+        self.__td = td
+        self.__event = event
+
+    def type(self):
+        """
+        @rtype str|None
+        @return The type of this event as a full IRI if there is a @type annotation. Otherwise None.
+        """
+        if '@type' in self.__event.keys():
+            return self.__td.namespace_repository().resolve(self.__event['@type'])
+        else:
+            return None
+
+    def name(self):
+        """
+        @rtype str|None
+        @return The name of this event if there is one. Otherwise None.
+        """
+        if 'name' in self.__event.keys():
+            return self.__event['name']
+        else:
+            return None
+
+    def value_type(self):
+        """
+        @rtype dict
+        @return The value type definition of this event as deserialized JSON schema or None
+        if there is no valueType annotation in the TD.
+        """
+        if 'valueType' in self.__event.keys():
+            return _ns_resolve_input_type(self.__event['valueType'], self.__td.namespace_repository())
+        else:
+            return None
+
+
+    def hrefs(self):
+        """
+        @rtype list
+        @return The list of relative references to this event.
+        """
+        if 'hrefs' in self.__event.keys():
+            return self.__event['hrefs']
+        else:
+            return None
+
+    def url(self, proto='http'):
+        """
+        Resolves the full URL of the event for a given protocol.
+        @type proto str
+        @param proto The protocol for which an URL should be returned.
+        @rtype str
+        @return Returns the full URL for the given protocol or None if there is none.
+        """
+        for i, base_url in enumerate(self.__td.uris()):
+            base_url_parsed = urlparse(base_url)
+            if base_url_parsed.scheme == proto:
+                if base_url[-1] == '/':
+                    return base_url + self.__event['hrefs'][i]
+                else:
+                    return base_url + '/' + self.__event['hrefs'][i]
+        return None
+
+    def subscribe(self, callback, conf_data = None, poll_interval=200):
+        if isinstance(conf_data, dict):
+            serialized_conf = json.dumps(conf_data)
+        elif isinstance(conf_data, str):
+            serialized_conf = conf_data
+        else:
+            serialized_conf = None
+
+        url = self.url(proto='http')
+        if not url:
+            raise Exception("HTTP is not supported for this event!")
+
+        url_parse = urlparse(url)
+        conn = HTTPConnection(url_parse.netloc)
+        conn.request('POST', url_parse.path, body=serialized_conf)
+        response = conn.getresponse()
+
+        if response.code != 308:
+            raise Exception(
+                "Received HTTP code %d %s, but expected 308 Permanent Redirect when invoking action %s" % (response.code, response.status, self.url()))
+        else:
+            subscription_uri = None
+            for base_url in self.__td.uris():
+                base_url_parsed = urlparse(base_url)
+                if base_url_parsed.scheme == 'http':
+                    subscription_uri = base_url + response.headers['Location']
+
+            if subscription_uri:
+                return EventSubscription(subscription_uri, callback, self.value_type(), poll_interval)
+            else:
+                raise Exception("Thing does not support HTTP.")
+
+class EventSubscription(object):
+    def __init__(self, uri, callback, value_type, poll_interval):
+        self.__uri = uri
+        self.__callback = callback
+        self.__value_type = value_type
+        self.__poll_interval = poll_interval
+        self.__valid = True
+        self.__error_callback = None
+
+        # Start polling routine as new daemon thread:
+        poll_thread = threading.Thread(self.__poll, args=())
+        poll_thread.daemon = True
+        poll_thread.start()
+
+    def __poll(self):
+        url_parsed = urlparse(self.__uri)
+
+        while self.__valid:
+            conn = HTTPConnection(url_parsed.netloc)
+            conn.request('GET', url_parsed.path)
+            response = conn.getresponse()
+            if response.code == 200:
+                raw = response.read().decode('utf-8')
+
+                if self.__value_type['type'] == 'number' or self.__value_type['type'] == 'float':
+                    parsed = float(raw)
+                elif self.__value_type['type'] == 'integer':
+                    parsed = int(raw)
+                elif self.__value_type['type'] == 'object':
+                    parsed = json.loads(raw)
+                elif self.__error_callback:
+                    self.__error_callback("Unknown value type %s" % self.__value_type['type'])
+
+                if parsed and self.__callback:
+                    self.__callback(parsed)
+
+            elif self.__error_callback:
+                self.__error_callback("Received %d %s on request for subscribed resource %s" % (
+                response.code, response.status, self.__uri))
+
+            time.sleep(self.__poll_interval/1000.0)
+
+    def invalidate(self):
+        self.__valid = False
