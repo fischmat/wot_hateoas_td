@@ -14,8 +14,8 @@ class TDInputBuilder(object):
     # Rules for 'free-text' fields
     __value_rules = []
 
-    # Rules for fields with 'option' constraints
-    __option_rules = []
+    # Rules for fields with 'oneof' constraints
+    __oneof_rules = []
 
     def add_value_rule(self, domain, type, value):
         """
@@ -48,19 +48,19 @@ class TDInputBuilder(object):
         """
         self.__value_rules.append((domain, type, value))
 
-    def add_option_rule(self, domain, type):
+    def add_oneof_rule(self, domain, type):
         """
-        Adds an rule how to process fields with 'options' constraints.
+        Adds an rule how to process fields with 'oneOf' constraints.
 
         Example:
         ib = TDInputBuilder()
-        ib.add_option_rule('http://someont.de/#Color', 'http://someont.de/#Red')
+        ib.add_oneof_rule('http://someont.de/#Color', 'http://someont.de/#Red')
         input_params = ib.build(some_action)
 
         This sets the value of the field with the following type description to "#ff0000"
         {
             "type": "string",
-            "options": [
+            "oneOf": [
                 {
                     "value": "#0000ff",
                     "dbo:Colour": "dbr:Blue"
@@ -78,7 +78,7 @@ class TDInputBuilder(object):
         @type type str
         @param type Full IRI of the fields value type.
         """
-        self.__option_rules.append((domain, type))
+        self.__oneof_rules.append((domain, type))
 
     def __dispatch_value_field(self, ns_repo, key, value, datatype):
         """
@@ -97,19 +97,19 @@ class TDInputBuilder(object):
                 return rule_value
         return None
 
-    def __dispatch_options_field(self, ns_repo, options):
+    def __dispatch_oneof_field(self, ns_repo, options):
         """
-        Determines the value of a 'options' constrained field using the rules given.
+        Determines the value of a 'oneOf' constrained field using the rules given.
         @return Returns the value imposed by an applicable rule or None if no rule was applicable.
         """
         for option in options:
             for key, value in option.items():
-                if key != 'value':
-                    for rule_domain, rule_type in self.__option_rules:
+                if key != 'constant':
+                    for rule_domain, rule_type in self.__oneof_rules:
                         domain = ns_repo.resolve(key)
                         type = ns_repo.resolve(value)
                         if sparql.classes_equivalent(domain, rule_domain) and sparql.classes_equivalent(type, rule_type):
-                            return option['value']
+                            return option['constant']
         return None
 
     def __dispatch_type_description(self, ns_repo, it):
@@ -121,12 +121,12 @@ class TDInputBuilder(object):
         """
         if it['type'] != 'object':
             for key, value in it.items():
-                if key == 'options':
-                    v = self.__dispatch_options_field(ns_repo, it['options'])
+                if key == 'oneOf':
+                    v = self.__dispatch_oneof_field(ns_repo, it['oneOf'])
                     if v:
                         return v
                     else:
-                        raise UnknownSemanticsException('The semantics of none of the options could be determined.')
+                        raise UnknownSemanticsException('The semantics of none of the oneOf options could be determined.')
 
                 elif isinstance(key, str) and isinstance(value, str):
                     v = self.__dispatch_value_field(ns_repo, key, value, it['type'])

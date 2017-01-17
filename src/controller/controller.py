@@ -39,11 +39,11 @@ class AlarmSystem(object):
             if secs <= self.auth_ttl_secs:  # Permission case
                 welcome_action = self.alarm_source.get_action_by_types(['http://www.matthias-fisch.de/ontologies/wot#PlaybackAction'])
                 if welcome_action:
-                    pb = TDInputBuilder()
-                    pb.add_option_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile', 'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
+                    ib = TDInputBuilder()
+                    ib.add_oneof_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile', 'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
 
                     try:
-                        params = pb.build(welcome_action)
+                        params = ib.build(welcome_action)
                     except UnknownSemanticsException:
                         print("Wanted to say 'Welcome', but semantics of playback action could not be determined :(")
                         return
@@ -55,15 +55,15 @@ class AlarmSystem(object):
                 alarm_action = self.alarm_source.get_action_by_types(
                     ['http://www.matthias-fisch.de/ontologies/wot#AlarmAction'])
 
-                pb = TDInputBuilder()
-                pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
+                ib = TDInputBuilder()
+                ib.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
                                        'http://dbpedia.org/resource/Second', self.alarm_duration_secs)
-                pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
+                ib.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
                                        'http://dbpedia.org/resource/Millisecond', self.alarm_duration_secs * 1000)
-                pb.add_option_rule('http://dbpedia.org/ontology/Colour', 'http://dbpedia.org/resource/Red')
+                ib.add_oneof_rule('http://dbpedia.org/ontology/Colour', 'http://dbpedia.org/resource/Red')
 
                 try:
-                    params = pb.build(alarm_action)
+                    params = ib.build(alarm_action)
                 except UnknownSemanticsException as e:
                     print("Cannot determine semantics of alarm actions input type.")
                     return
