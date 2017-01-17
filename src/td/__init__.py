@@ -626,7 +626,8 @@ class TDEvent(object):
                     return base_url + '/' + self.__event['hrefs'][i]
         return None
 
-    def subscribe(self, callback, conf_data = None, poll_interval=200):
+    def subscribe(self, conf_data = None, poll_interval=200):
+        # Serialize data according to valueType of the TD:
         if isinstance(conf_data, dict):
             serialized_conf = json.dumps(conf_data)
         elif isinstance(conf_data, str):
@@ -634,19 +635,23 @@ class TDEvent(object):
         else:
             serialized_conf = None
 
+        # Get the HTTP-URL of this event:
         url = self.url(proto='http')
         if not url:
             raise Exception("HTTP is not supported for this event!")
 
+        # Do a POST request:
         url_parse = urlparse(url)
         conn = HTTPConnection(url_parse.netloc)
         conn.request('POST', url_parse.path, body=serialized_conf)
         response = conn.getresponse()
 
+        # Thing should create a new resource and redirect to it:
         if response.code != 308:
             raise Exception(
                 "Received HTTP code %d %s, but expected 308 Permanent Redirect when invoking action %s" % (response.code, response.status, self.url()))
         else:
+            # Build the full URI of the created resource:
             subscription_uri = None
             for base_url in self.__td.uris():
                 base_url_parsed = urlparse(base_url)
@@ -654,26 +659,28 @@ class TDEvent(object):
                     subscription_uri = base_url + response.headers['Location']
 
             if subscription_uri:
-                return EventSubscription(subscription_uri, callback, self.value_type(), poll_interval)
+                return EventSubscription(subscription_uri, self.value_type(), poll_interval)
             else:
                 raise Exception("Thing does not support HTTP.")
 
 class EventSubscription(object):
-    def __init__(self, uri, callback, value_type, poll_interval):
+    def __init__(self, uri, value_type, poll_interval):
         self.__uri = uri
-        self.__callback = callback
         self.__value_type = value_type
         self.__poll_interval = poll_interval
         self.__valid = True
         self.__error_callback = None
 
-    def start(self):
+    def start(self, callback, error_callback = None):
+        """
+        Start observation of the event resource.
+        """
         # Start polling routine as new daemon thread:
-        poll_thread = threading.Thread(self.__poll, args=())
+        poll_thread = threading.Thread(self.__poll, args=(callback, ))
         poll_thread.daemon = True
         poll_thread.start()
 
-    def __poll(self):
+    def __poll(self, callback):
         url_parsed = urlparse(self.__uri)
 
         while self.__valid:
@@ -692,8 +699,8 @@ class EventSubscription(object):
                 elif self.__error_callback:
                     self.__error_callback("Unknown value type %s" % self.__value_type['type'])
 
-                if parsed and self.__callback:
-                    self.__callback(parsed)
+                if parsed and callback:
+                    callback(parsed)
 
             elif self.__error_callback:
                 self.__error_callback("Received %d %s on request for subscribed resource %s" % (
@@ -703,3 +710,6 @@ class EventSubscription(object):
 
     def invalidate(self):
         self.__valid = False
+
+    def set_error_callback(self, error_callback):
+        self.__error_callback = error_callback
