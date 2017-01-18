@@ -31,44 +31,45 @@ class AlarmSystem(object):
 
     last_auth_time = datetime.datetime(1970, 1, 1, 0, 0, 0)
 
-    def on_door_opened(self, is_opened):
-        if is_opened:  # If the door is opened and not closed
-            # Calculate seconds since last authentication:
-            secs = (datetime.datetime.now() - self.last_auth_time).total_seconds()
+    def on_door_opened(self, open_timestamp):
+        # Calculate seconds since last authentication:
+        secs = (datetime.datetime.now() - self.last_auth_time).total_seconds()
 
-            if secs <= self.auth_ttl_secs:  # Permission case
-                welcome_action = self.alarm_source.get_action_by_types(['http://www.matthias-fisch.de/ontologies/wot#PlaybackAction'])
-                if welcome_action:
-                    pb = TDInputBuilder()
-                    pb.add_option_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile', 'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
-
-                    try:
-                        params = pb.build(welcome_action)
-                    except UnknownSemanticsException:
-                        print("Wanted to say 'Welcome', but semantics of playback action could not be determined :(")
-                        return
-                    welcome_action.invoke(params)
-                else:
-                    print("Wanted to say 'Welcome', but alarm device is not capable of that :(")
-
-            else:  # Alarm case
-                alarm_action = self.alarm_source.get_action_by_types(
-                    ['http://www.matthias-fisch.de/ontologies/wot#AlarmAction'])
-
+        if secs <= self.auth_ttl_secs:  # Permission case
+            welcome_action = self.alarm_source.get_action_by_types(
+                ['http://www.matthias-fisch.de/ontologies/wot#PlaybackAction'])
+            if welcome_action:
                 pb = TDInputBuilder()
-                pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
-                                       'http://dbpedia.org/resource/Second', self.alarm_duration_secs)
-                pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
-                                       'http://dbpedia.org/resource/Millisecond', self.alarm_duration_secs * 1000)
-                pb.add_option_rule('http://dbpedia.org/ontology/Colour', 'http://dbpedia.org/resource/Red')
+                pb.add_option_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile',
+                                   'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
 
                 try:
-                    params = pb.build(alarm_action)
-                except UnknownSemanticsException as e:
-                    print("Cannot determine semantics of alarm actions input type.")
+                    params = pb.build(welcome_action)
+                except UnknownSemanticsException:
+                    print("Wanted to say 'Welcome', but semantics of playback action could not be determined :(")
                     return
+                welcome_action.invoke(params)
+            else:
+                print("Wanted to say 'Welcome', but alarm device is not capable of that :(")
 
-                alarm_action.invoke(params)
+        else:  # Alarm case
+            alarm_action = self.alarm_source.get_action_by_types(
+                ['http://www.matthias-fisch.de/ontologies/wot#AlarmAction'])
+
+            pb = TDInputBuilder()
+            pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
+                              'http://dbpedia.org/resource/Second', self.alarm_duration_secs)
+            pb.add_value_rule('http://www.matthias-fisch.de/ontologies/wot#Duration',
+                              'http://dbpedia.org/resource/Millisecond', self.alarm_duration_secs * 1000)
+            pb.add_option_rule('http://dbpedia.org/ontology/Colour', 'http://dbpedia.org/resource/Red')
+
+            try:
+                params = pb.build(alarm_action)
+            except UnknownSemanticsException as e:
+                print("Cannot determine semantics of alarm actions input type.")
+                return
+
+            alarm_action.invoke(params)
 
     def on_authentication(self, data):
         self.last_auth_time = datetime.datetime.strptime(data['time'], "%d-%m-%Y %H:%M:%S")
