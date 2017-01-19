@@ -22,6 +22,9 @@ DISTANCE_CALIBRATION_TIME = 5
 # Unix-timestamp of the last recognized door opening:
 last_door_open_time = 0
 
+# Unix-timestamp of the last recognized door closing:
+last_door_close_time = 1 # Set higher than open time, because we assume door is closed at the beginning
+
 import RPi.GPIO as GPIO
 # GPIO Mode (BOARD / BCM)
 GPIO.setmode(GPIO.BCM)
@@ -71,6 +74,11 @@ def observe_door_status():
         if not in_calibration and distance < last_distance - DISTANCE_EPSILON:
             global last_door_open_time
             last_door_open_time = now
+
+        # If distance is increased since last measurement, assume the door opened. Omit in calibration phase again.
+        if not in_calibration and distance > last_distance + DISTANCE_EPSILON:
+            global last_door_close_time
+            last_door_close_time = now
 
         # Log the distance measured in this cycle:
         last_distance = distance
@@ -138,6 +146,18 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
                 ]
             }).encode())
 
+        elif self.path == '/isopen':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+
+            # Door is currently open iff last opening is younger than last closing:
+            global last_door_open_time, last_door_close_time
+            is_open = last_door_open_time > last_door_close_time
+            self.wfile.write(json.dumps({
+                'value': is_open
+            }).encode())
+
         elif self.path in self.open_event_signalized.keys():
             # Check whether the last report of this resource was sent after the last door open event,
             # thus the client already knows about it:
@@ -190,7 +210,7 @@ try:
     # Create a web server and define the handler to manage the
     # incoming request
     server = HTTPServer(('', PORT_NUMBER), DoorTDRequestHandler)
-    print('Started httpserver on port ', PORT_NUMBER)
+    print('Started httpserver on port %d serving Thing Description' % PORT_NUMBER)
 
     # Wait forever for incoming htto requests
     server.serve_forever()
