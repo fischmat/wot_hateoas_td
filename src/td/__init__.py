@@ -697,7 +697,7 @@ class EventSubscription(object):
         Start observation of the event resource.
         """
         # Start polling routine as new daemon thread:
-        poll_thread = threading.Thread(self.__poll, args=(callback, ))
+        poll_thread = threading.Thread(target=self.__poll, args=(callback, ))
         poll_thread.daemon = True
         poll_thread.start()
 
