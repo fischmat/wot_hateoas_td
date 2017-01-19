@@ -55,6 +55,23 @@
     
 
 
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Closed -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Closed">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+        <rdfs:seeAlso rdf:resource="http://dbpedia.org/property/closed"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#DateTime -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#DateTime">
+        <rdfs:seeAlso rdf:resource="http://purl.org/iot/vocab/m3-lite#Time"/>
+    </owl:Class>
+    
+
+
     <!-- http://www.matthias-fisch.de/ontologies/wot#Door -->
 
     <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Door">
@@ -89,6 +106,14 @@
     
 
 
+    <!-- http://www.matthias-fisch.de/ontologies/wot#ISODateTime -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#ISODateTime">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#DateTime"/>
+    </owl:Class>
+    
+
+
     <!-- http://www.matthias-fisch.de/ontologies/wot#Light -->
 
     <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Light">
@@ -115,6 +140,25 @@
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
         <rdfs:comment xml:lang="en">The state of a thing in terms of on and off.</rdfs:comment>
         <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OnOffState"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Open -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Open">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+        <rdfs:seeAlso rdf:resource="http://dbpedia.org/property/open"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#OpenState -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#OpenState">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
+        <rdfs:comment xml:lang="en">Defines whether some physical entity is open.</rdfs:comment>
+        <rdfs:seeAlso rdf:resource="https://w3id.org/saref#OpenCloseState"/>
     </owl:Class>
     
 
@@ -166,6 +210,15 @@
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
         <rdfs:comment xml:lang="en">Stop some sort of flashing.</rdfs:comment>
         <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#OffFlashingCommand"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#UnixTimestamp -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#UnixTimestamp">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#DateTime"/>
+        <rdfs:seeAlso rdf:resource="http://purl.org/iot/vocab/m3-lite#Timestamp"/>
     </owl:Class>
     
 
