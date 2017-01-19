@@ -711,19 +711,16 @@ class EventSubscription(object):
             if response.code == 200:
                 raw = response.read().decode('utf-8')
 
-                if self.__value_type['type'] == 'number' or self.__value_type['type'] == 'float':
-                    parsed = float(raw)
-                elif self.__value_type['type'] == 'integer':
-                    parsed = int(raw)
-                elif self.__value_type['type'] == 'object':
-                    parsed = json.loads(raw)
-                elif self.__error_callback:
-                    self.__error_callback("Unknown value type %s" % self.__value_type['type'])
+                # Accoring to W3C IG Common Practices, the value is sent as the value of an objects "value" field:
+                response_object = json.loads(raw)
+                if response_object and 'value' in response_object:
+                    if callback:
+                        # Invoke callback routine with data from the value field:
+                        callback(response_object['value'])
+                else:
+                    print("Received invalid response. Should be object with 'value' field, %s received" % raw)
 
-                if parsed and callback:
-                    callback(parsed)
-
-            elif self.__error_callback:
+            elif response.code != 208 and self.__error_callback:
                 self.__error_callback("Received %d %s on request for subscribed resource %s" % (
                 response.code, response.status, self.__uri))
 
