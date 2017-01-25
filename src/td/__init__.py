@@ -52,6 +52,7 @@ class ThingDescription(object):
         if isinstance(td, str):
             td = json.loads(td)
         self.__td = td
+        self.__ns_repo = self.namespace_repository()
 
     def namespace_repository(self):
         """
@@ -68,17 +69,17 @@ class ThingDescription(object):
                         self.__ns_repo.register(shorthand, prefix)
             return self.__ns_repo
 
-    def type_equivalent_to(self, types):
+    def type_equivalent_to(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Checks whether the @type of this thing is equvalent to any of the given types.
         @param types List of IRIs (either full or shorthands with prefixes defined in this TD)
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Returns True if any of the types given is equivalent to @type of this TD. Returns False
         if none of them is or @type is not set in this TD.
         """
         if '@type' in self.__td.keys():
             for type in types:
-                if sparql.classes_equivalent(self.__ns_repo.resolve(self.__td['@type'],
-                                                                    self.__ns_repo.resolve(type))):
+                if sparql.classes_equivalent(self.__ns_repo.resolve(self.__td['@type']), self.__ns_repo.resolve(type), sparql_endpoint):
                     return True
             return False
         else:
@@ -93,10 +94,11 @@ class ThingDescription(object):
                 return prop
         return None
 
-    def get_property_by_types(self, types):
+    def get_property_by_types(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Returns properties equivalent to any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Any property equivalent to any given type or None if none found.
         """
         ns_repo = self.namespace_repository()
@@ -107,14 +109,15 @@ class ThingDescription(object):
                     return TDProperty(self, prop)
                 else:
                     for type in types:
-                        if sparql.classes_equivalent(type, ns_repo.resolve(prop['@type'])):
+                        if sparql.classes_equivalent(type, ns_repo.resolve(prop['@type']), sparql_endpoint):
                             return TDProperty(self, prop)
         return None
 
-    def get_action_by_types(self, types):
+    def get_action_by_types(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Returns actions equivalent to any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Any action equivalent to any given type or None if none found.
         """
         ns_repo = self.namespace_repository()
@@ -125,14 +128,15 @@ class ThingDescription(object):
                     return TDAction(self, action)
                 else:
                     for type in types:
-                        if sparql.classes_equivalent(type, ns_repo.resolve(action['@type'])):
+                        if sparql.classes_equivalent(type, ns_repo.resolve(action['@type']), sparql_endpoint):
                             return TDAction(self, action)
         return None
 
-    def get_event_by_types(self, types):
+    def get_event_by_types(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Returns events equivalent to any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Any event equivalent to any given type or None if none found.
         """
         ns_repo = self.namespace_repository()
@@ -143,14 +147,15 @@ class ThingDescription(object):
                     return TDEvent(self, event)
                 else:
                     for type in types:
-                        if sparql.classes_equivalent(type, ns_repo.resolve(event['@type'])):
+                        if sparql.classes_equivalent(type, ns_repo.resolve(event['@type']), sparql_endpoint):
                             return TDEvent(self, event)
         return None
 
-    def has_all_properties_of(self, types):
+    def has_all_properties_of(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Checks if this thing has an equivalent property for any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @rtype bool
         @return Returns True iff there is an equivalent property for every given type.
         """
@@ -160,7 +165,7 @@ class ThingDescription(object):
             found_matching_prop = False
             for prop in self.__td['properties']:
                 if '@type' in prop.keys():
-                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(prop['@type'])):
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(prop['@type']), sparql_endpoint):
                         found_matching_prop = True
             if not found_matching_prop:
                 return False
@@ -175,10 +180,11 @@ class ThingDescription(object):
         """
         return self.get_property_by_types(types) is not None
 
-    def has_all_actions_of(self, types):
+    def has_all_actions_of(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Checks if this thing has an equivalent action for any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @rtype bool
         @return Returns True iff there is an equivalent action for every given type.
         """
@@ -188,7 +194,7 @@ class ThingDescription(object):
             found_matching_action = False
             for action in self.__td['actions']:
                 if '@type' in action.keys():
-                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(action['@type'])):
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(action['@type']), sparql_endpoint):
                         found_matching_action = True
             if not found_matching_action:
                 return False
@@ -203,10 +209,11 @@ class ThingDescription(object):
         """
         return self.get_action_by_types(types) is not None
 
-    def has_all_events_of(self, types):
+    def has_all_events_of(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Checks if this thing has an equivalent event for any of the given types.
         @param types List of IRIs.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @rtype bool
         @return Returns True iff there is an equivalent event for every given type.
         """
@@ -216,7 +223,7 @@ class ThingDescription(object):
             found_matching_event = False
             for event in self.__td['events']:
                 if '@type' in event.keys():
-                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(event['@type'])):
+                    if sparql.classes_equivalent(ns_repo.resolve(type), ns_repo.resolve(event['@type']), sparql_endpoint):
                         found_matching_event = True
             if not found_matching_event:
                 return False
@@ -238,24 +245,24 @@ class ThingDescription(object):
         return self.__td['uris']
 
 
-def _validate_input_string(self, vt, value):
+def _validate_input_string(vt, value):
     if isinstance(value, str):
         # Any constraints?
         if 'enum' in vt.keys():
             if value in vt['enum']:
-                return self.__set_plain(value)
+                return True
             else:
                 raise ValueError("Value %s not allowed (not in enum)" % value)
-        elif 'options' in vt.keys():
-            if value in [o['value'] for o in vt['options']]:
-                return self.__set_plain(value)
+        elif 'oneOf' in vt.keys():
+            if value in [o['constant'] for o in vt['oneOf']]:
+                return True
             else:
                 raise ValueError("Value %s not allowed (options constraint)" % value)
     else:
         raise ValueError("Value type definition imposes string but %s given!" % str(type(value)))
 
 
-def _validate_input_number(self, vt, value):
+def _validate_input_number(vt, value):
     if isinstance(value, float) or isinstance(value, int):
         if 'minimum' in vt.keys() and value < vt['minimum']:
             raise ValueError("Value %f violates minimum constraint of %f" % (float(value), float(vt['minimum'])))
@@ -266,7 +273,7 @@ def _validate_input_number(self, vt, value):
         raise ValueError("Value type definition imposes number but %s given!" % str(type(value)))
 
 
-def _validate_input_object(self, vt, o):
+def _validate_input_object(vt, o):
     if isinstance(o, dict):
         for prop_name, prop_vt in vt['properties'].items():
             if prop_name in o.keys():
@@ -425,10 +432,15 @@ class TDProperty(object):
         for i, base_url in enumerate(self.__td.uris()):
             base_url_parsed = urlparse(base_url)
             if base_url_parsed.scheme == proto:
+                hrefs = self.hrefs()
+                # Prepend / if necessary:
+                if hrefs[i][0] != '/':
+                    hrefs[i][0] = '/' + hrefs[i][0]
+
                 if base_url[-1] == '/':
-                    return base_url + self.__prop['hrefs'][i]
+                    return base_url[:-1] + hrefs[i]
                 else:
-                    return base_url + '/' + self.__prop['hrefs'][i]
+                    return base_url + hrefs[i]
         return None
 
     def __value_plain(self):
@@ -461,7 +473,7 @@ class TDProperty(object):
         """
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
-        conn.request('POST', url.path, body=value)
+        conn.request('POST', url.path, body=value, headers={'Content-Type': 'application/json'})
         response = conn.getresponse()
         if response.code == 200:
             return True
@@ -475,18 +487,21 @@ class TDProperty(object):
         @param value The value to set (of required type and format).
         @raise ValueError If value does not satisfy the constraints given by the TD.
         """
+        # Use JSON serialization:
+        data = json.dumps({'value': value})
+
         vt = self.value_type()
         if vt['type'] == 'string':
-            with _validate_input_string(vt, value):
-                self.__set_plain(value)
+            _validate_input_string(vt, value)
+            self.__set_plain(data)
 
         elif vt['type'] == 'number' or vt['type'] == 'integer' or vt['type'] == 'float':
-            with _validate_input_number(vt, value):
-                self.__set_plain(str(value))
+            _validate_input_number(vt, value)
+            self.__set_plain(data)
 
         elif vt['type'] == 'object':
-            with _validate_input_object(vt, value):
-                self.__set_plain(json.dumps(value))
+            _validate_input_object(vt, value)
+            self.__set_plain(data)
         else:
             raise Exception("Property has unknown type %s" % vt['type'])
 
@@ -556,43 +571,54 @@ class TDAction:
             base_url_parsed = urlparse(base_url)
             if base_url_parsed.scheme == proto:
                 hrefs = self.hrefs()
+                # Prepend / if necessary:
+                if hrefs[i][0] != '/':
+                    hrefs[i][0] = '/' + hrefs[i][0]
+
                 if hrefs is not None:
                     if base_url[-1] == '/':
-                        return base_url + hrefs[i]
+                        return base_url[:-1] + hrefs[i]
                     else:
-                        return base_url + '/' + hrefs[i]
+                        return base_url + hrefs[i]
         return None
 
     def __invoke_plain(self, plain_data):
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
-        conn.request('POST', url.path, body=plain_data)
+        conn.request('POST', url.path, body=plain_data, headers={'Content-Type': 'application'})
         response = conn.getresponse()
         if response.code != 200:
             raise Exception("Received error code %d %s when invoking action %s" % (response.code, response.status, self.url()))
         else:
             return response.read().decode('utf-8')
 
-    def invoke(self, input_data):
+    def invoke(self, input):
+        # Pack input in value field like recommended in W3C IG paper:
+        input_data = json.dumps({'value': input})
+
         ivt = self.input_value_type()
         ovt = self.output_value_type()
-        if ivt['type'] == 'string':
-            with _validate_input_string(ivt, input_data):
-                out_plain = self.__invoke_plain(input_data)
-                if ovt:
-                    return _parse_raw_response(out_plain, ovt)
+        if 'type' not in ivt:
+            out_plain = self.__invoke_plain('')
+            if ovt:
+                return _parse_raw_response(out_plain, ovt)
+        elif ivt['type'] == 'string':
+            _validate_input_string(ivt, input)
+            out_plain = self.__invoke_plain(input_data)
+            if ovt:
+                return _parse_raw_response(out_plain, ovt)
 
         elif ivt['type'] == 'number' or ivt['type'] == 'integer' or ivt['type'] == 'float':
-            with _validate_input_number(ivt, input_data):
-                out_plain = self.__invoke_plain(str(input_data))
-                if ovt:
-                    return _parse_raw_response(out_plain, ovt)
+            _validate_input_number(ivt, input)
+            out_plain = self.__invoke_plain(str(input_data))
+            if ovt:
+                return _parse_raw_response(out_plain, ovt)
 
         elif ivt['type'] == 'object':
-            with _validate_input_object(ivt, input_data):
-                out_plain = self.__invoke_plain(json.dumps(input_data))
-                if ovt:
-                    return _parse_raw_response(out_plain, ovt)
+            _validate_input_object(ivt, input)
+            out_plain = self.__invoke_plain(json.dumps(input_data))
+            if ovt:
+                return _parse_raw_response(out_plain, ovt)
         else:
             raise Exception("Action has unknown input data type %s" % ivt['type'])
 
@@ -676,8 +702,13 @@ class TDEvent(object):
         for i, base_url in enumerate(self.__td.uris()):
             base_url_parsed = urlparse(base_url)
             if base_url_parsed.scheme == proto:
+                hrefs = self.hrefs()
+                # Prepend / if necessary:
+                if hrefs[i][0] != '/':
+                    hrefs[i][0] = '/' + hrefs[i][0]
+
                 if base_url[-1] != '/':
-                    return base_url + self.__event['hrefs'][i]
+                    return base_url + hrefs[i]
                 else:
                     return base_url[:-1] + self.__event['hrefs'][i]
         return None
@@ -699,7 +730,7 @@ class TDEvent(object):
         # Do a POST request:
         url_parse = urlparse(url)
         conn = HTTPConnection(url_parse.netloc)
-        conn.request('POST', url_parse.path, body=serialized_conf)
+        conn.request('POST', url_parse.path, body=serialized_conf, headers={'Content-Type': 'application/json'})
         response = conn.getresponse()
 
         # Thing should create a new resource and redirect to it:

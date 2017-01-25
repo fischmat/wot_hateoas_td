@@ -1,4 +1,6 @@
 from src import sparql
+from src.td import TDProperty, TDAction, TDEvent
+
 
 class UnknownSemanticsException(Exception):
     def __init__(self, *args, **kwargs):
@@ -80,26 +82,29 @@ class TDInputBuilder(object):
         """
         self.__oneof_rules.append((domain, type))
 
-    def __dispatch_value_field(self, ns_repo, key, value, datatype):
+    def __dispatch_value_field(self, ns_repo, key, value, datatype, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Determines the value of a 'free-text' field using the rules given.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Returns the value imposed by an applicable rule or None if no rule was applicable.
         """
-        domain = ns_repo.resolve(key)
-        type = ns_repo.resolve(value)
-        for rule_domain, rule_type, rule_value in self.__value_rules:
-            dt_match = (isinstance(rule_value, int) and datatype == 'integer') \
-                       or (isinstance(rule_value, float) and datatype == 'float') \
-                       or (isinstance(rule_value, str) and datatype == 'string') \
-                       or (isinstance(rule_value, bool) and datatype == 'boolean')
+        if key != 'type':
+            domain = ns_repo.resolve(key)
+            type = ns_repo.resolve(value)
+            for rule_domain, rule_type, rule_value in self.__value_rules:
+                dt_match = (isinstance(rule_value, int) and datatype == 'integer') \
+                           or (isinstance(rule_value, float) and datatype == 'float') \
+                           or (isinstance(rule_value, str) and datatype == 'string') \
+                           or (isinstance(rule_value, bool) and datatype == 'boolean')
 
-            if dt_match and sparql.classes_equivalent(domain, rule_domain) and sparql.classes_equivalent(type, rule_type):
-                return rule_value
+                if dt_match and sparql.classes_equivalent(domain, rule_domain, endpoint=sparql_endpoint) and sparql.classes_equivalent(type, rule_type, endpoint=sparql_endpoint):
+                    return rule_value
         return None
 
-    def __dispatch_oneof_field(self, ns_repo, options):
+    def __dispatch_oneof_field(self, ns_repo, options, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Determines the value of a 'oneOf' constrained field using the rules given.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return Returns the value imposed by an applicable rule or None if no rule was applicable.
         """
         for option in options:
@@ -108,13 +113,14 @@ class TDInputBuilder(object):
                     for rule_domain, rule_type in self.__oneof_rules:
                         domain = ns_repo.resolve(key)
                         type = ns_repo.resolve(value)
-                        if sparql.classes_equivalent(domain, rule_domain) and sparql.classes_equivalent(type, rule_type):
+                        if sparql.classes_equivalent(domain, rule_domain, endpoint=sparql_endpoint) and sparql.classes_equivalent(type, rule_type, endpoint=sparql_endpoint):
                             return option['constant']
         return None
 
-    def __dispatch_type_description(self, ns_repo, it):
+    def __dispatch_type_description(self, ns_repo, it, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Determines the values of the fields using the given type description and the rules registered.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return The determined input. (Either primitive type or dict if it['type'] is 'object')
         @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
         not be determined or if 'it' describes an object and the latter case is given for any required property.
@@ -122,14 +128,14 @@ class TDInputBuilder(object):
         if it['type'] != 'object':
             for key, value in it.items():
                 if key == 'oneOf':
-                    v = self.__dispatch_oneof_field(ns_repo, it['oneOf'])
+                    v = self.__dispatch_oneof_field(ns_repo, it['oneOf'], sparql_endpoint=sparql_endpoint)
                     if v:
                         return v
                     else:
                         raise UnknownSemanticsException('The semantics of none of the oneOf options could be determined.')
 
                 elif isinstance(key, str) and isinstance(value, str):
-                    v = self.__dispatch_value_field(ns_repo, key, value, it['type'])
+                    v = self.__dispatch_value_field(ns_repo, key, value, it['type'], sparql_endpoint=sparql_endpoint)
                     if v:
                         return v
             raise UnknownSemanticsException('Cannot determine semantics of field.')
@@ -138,20 +144,27 @@ class TDInputBuilder(object):
             o = {}
             for prop_name, prop_desc in it['properties']:
                 try:
-                    o[prop_name] = self.__dispatch_type_description(ns_repo, prop_desc)
+                    o[prop_name] = self.__dispatch_type_description(ns_repo, prop_desc, sparql_endpoint=sparql_endpoint)
                 except UnknownSemanticsException as e:
                     if prop_name in it['required']:
                         raise UnknownSemanticsException('Field %s is required, but semantics cannot be determined.' % prop_name) # If property is required, rethrow exception
             return o
 
-    def build(self, action):
+    def build(self, target, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
-        Determines the values of the fields using the actions type description and the rules registered.
+        Determines the values of the fields using the targets type description and the rules registered.
+        @param sparql_endpoint The URL of the NanoSPARQLServer REST-endpoint.
         @return The determined input. (Either primitive type or dict if it['type'] is 'object')
         @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
         not be determined or if 'it' describes an object and the latter case is given for any required property.
         """
-        it = action.input_type()
-        ns_repo = action.get_td().namespace_repository()
+        if isinstance(target, TDProperty):
+            it = target.value_type()
+        elif isinstance(target, TDAction):
+            it = target.input_type()
+        elif isinstance(target, TDEvent):
+            it = target.value_type()
 
-        return self.__dispatch_type_description(it)
+        ns_repo = target.get_td().namespace_repository()
+
+        return self.__dispatch_type_description(ns_repo, it, sparql_endpoint=sparql_endpoint)

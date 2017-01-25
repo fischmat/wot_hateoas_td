@@ -141,6 +141,10 @@ def classes_equivalent(iri1, iri2, endpoint = DEFAULT_SPARQL_ENDPOINT):
     @return: Returns true if the classes/resources are equivalent.
     @raise SparqlException: Raised if the internally constructed query is malformed or the response of the endpoint is.
     """
+    # If two resources/classes are described by the same IRI, then they are the same:
+    if iri1 == iri2:
+        return True
+
     q = 'PREFIX rdfs:<http://www.w3.org/2000/01/rdf-schema#> \
         PREFIX owl: <http://www.w3.org/2002/07/owl#> \
         ASK {\
