@@ -12,9 +12,28 @@ from http.client import HTTPConnection
 from urllib.parse import urlparse
 
 import time
+import http.client as httplib
 
 from src import sparql
 from src.sparql import SPARQLNamespaceRepository
+
+def get_thing_description_from_url(url):
+    """
+        Fetches and deserializes the thing description that can be found at a certain URL.
+        @type url str
+        @param url The URL where the TD is located.
+        @rtype ThingDescription
+        @return The TD.
+        """
+    url_parsed = urlparse(url)
+
+    conn = httplib.HTTPConnection(url_parsed.netloc)
+    conn.request('GET', url_parsed.path)
+    response = conn.getresponse()
+    if response.code == 200:
+        return ThingDescription(json.loads(response.read().decode('utf-8')))
+    else:
+        raise Exception("Received %d %s requesting %s" % (response.code, response.status, url))
 
 class ThingDescription(object):
     """

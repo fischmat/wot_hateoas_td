@@ -1,17 +1,14 @@
-import json
-import http.client as httplib
-from urllib.parse import urlparse
 import datetime
-
 import time
+from urllib.parse import urlparse
 
-from src import sparql
 from src.failuredetection import PingFailureDetector
 from src.netscan import HostListScanner
 from src.semantics import TDInputBuilder, UnknownSemanticsException
-from src.td import ThingDescription
 
 # Configuration. Location of the different things:
+from src.td import get_thing_description_from_url
+
 ROOM_LIGHT_URL = ''
 SPEAKER_URL = ''
 DOOR_URL = ''
@@ -75,24 +72,6 @@ class AlarmSystem(object):
         print("Entry authenticated at %s for %d seconds..." % (self.last_auth_time.strftime("%d-%m-%Y %H:%M:%S"), self.auth_ttl_secs))
 
 
-def get_td(url):
-    """
-    Fetches and deserializes the thing description that can be found at a certain URL.
-    @type url str
-    @param url The URL where the TD is located.
-    @rtype ThingDescription
-    @return The TD.
-    """
-    url_parsed = urlparse(url)
-
-    conn = httplib.HTTPConnection(url_parsed.netloc)
-    conn.request('GET', url_parsed.path)
-    response = conn.getresponse()
-    if response.code == 200:
-        return ThingDescription(json.loads(response.read().decode('utf-8')))
-    else:
-        raise Exception("Received %d %s requesting %s" % (response.code, response.status, url))
-
 
 def on_speaker_failure(fd):
     # Stop old FD on the failed device:
@@ -104,7 +83,7 @@ def on_speaker_failure(fd):
     alternatives = netscan.scan()  # Scan for hosts that are still up
     for host in alternatives:
         url = "http://%s/" % host
-        thing = get_td(url)
+        thing = get_thing_description_from_url(url)
 
         # Find a replacement for the alarm source
         if thing.has_all_events_of(['http://www.matthias-fisch.de/ontologies/wot#AlarmAction']):
@@ -123,7 +102,7 @@ def on_auth_failure(fd):
     alternatives = netscan.scan()  # Scan for hosts that are still up
     for host in alternatives:
         url = "http://%s/" % host
-        thing = get_td(url)
+        thing = get_thing_description_from_url(url)
 
         # Replacement must be capable of the permission event:
         if thing.has_all_events_of(['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission']):
@@ -150,7 +129,7 @@ def on_door_failure(fd):
     alternatives = netscan.scan()  # Scan for hosts that are still up
     for host in alternatives:
         url = "http://%s/" % host
-        thing = get_td(url)
+        thing = get_thing_description_from_url(url)
 
         # Replacement must be capable of the door opened event:
         if thing.has_all_events_of(['http://www.matthias-fisch.de/ontologies/wot#DoorOpenEvent']):
@@ -168,9 +147,9 @@ def on_door_failure(fd):
 
 
 alarm_system = AlarmSystem()
-alarm_system.alarm_source = get_td(SPEAKER_URL)
-alarm_system.authenticator = get_td(AUTHENTICATOR_URL)
-alarm_system.door = get_td(DOOR_URL)
+alarm_system.alarm_source = get_thing_description_from_url(SPEAKER_URL)
+alarm_system.authenticator = get_thing_description_from_url(AUTHENTICATOR_URL)
+alarm_system.door = get_thing_description_from_url(DOOR_URL)
 
 netscan = HostListScanner(['localhost'])
 
