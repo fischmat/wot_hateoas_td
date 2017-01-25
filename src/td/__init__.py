@@ -323,6 +323,15 @@ def _parse_raw_response(v, vt):
         return int(v)
     elif vt['type'] == 'object':
         return json.loads(v)
+    elif vt['type'] == 'boolean':
+        if isinstance(v, bool):
+            return v
+        else:
+            v_parsed = json.loads(v)
+            if isinstance(v_parsed, bool):
+                return v_parsed
+            else:
+                return bool(v_parsed)
     else:
         raise Exception("Value type definition imposes unknown type %s" % vt['type'])
 
@@ -440,10 +449,10 @@ class TDProperty(object):
         """
         @return The value of the property in the type specified in the TD. (e.g. 'number' -> int, 'object' -> dict)
         """
-        v = self.__value_plain()
+        v = json.loads(self.__value_plain())
         vt = self.value_type()
 
-        return _parse_raw_response(v, vt)
+        return _parse_raw_response(v['value'], vt)
 
     def __set_plain(self, value):
         """
@@ -667,10 +676,10 @@ class TDEvent(object):
         for i, base_url in enumerate(self.__td.uris()):
             base_url_parsed = urlparse(base_url)
             if base_url_parsed.scheme == proto:
-                if base_url[-1] == '/':
+                if base_url[-1] != '/':
                     return base_url + self.__event['hrefs'][i]
                 else:
-                    return base_url + '/' + self.__event['hrefs'][i]
+                    return base_url[:-1] + self.__event['hrefs'][i]
         return None
 
     def subscribe(self, conf_data = None, poll_interval=200):
@@ -696,7 +705,7 @@ class TDEvent(object):
         # Thing should create a new resource and redirect to it:
         if response.code != 308:
             raise Exception(
-                "Received HTTP code %d %s, but expected 308 Permanent Redirect when invoking action %s" % (response.code, response.status, self.url()))
+                "Received HTTP code %d %s, but expected 308 Permanent Redirect when invoking action %s" % (response.code, response.reason, self.url()))
         else:
             # Build the full URI of the created resource:
             subscription_uri = None
