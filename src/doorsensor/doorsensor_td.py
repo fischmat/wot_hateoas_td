@@ -23,9 +23,10 @@ DISTANCE_CALIBRATION_TIME = 5
 last_door_open_time = 0
 
 # Unix-timestamp of the last recognized door closing:
-last_door_close_time = 1 # Set higher than open time, because we assume door is closed at the beginning
+last_door_close_time = 1  # Set higher than open time, because we assume door is closed at the beginning
 
 import RPi.GPIO as GPIO
+
 # GPIO Mode (BOARD / BCM)
 GPIO.setmode(GPIO.BCM)
 
@@ -67,18 +68,20 @@ def observe_door_status():
 
         # Check whether this is still in the calibration interval:
         now = time.time()
-        in_calibration = now - calib_start_time < DISTANCE_CALIBRATION_TIME
+        in_calibration = abs(now - calib_start_time) < DISTANCE_CALIBRATION_TIME
 
         # If distance is diminished since last measurement, assume the door opened.
         # Omit setting the door open time during calibration phase, so no false positives occure
         if not in_calibration and distance < last_distance - DISTANCE_EPSILON:
             global last_door_open_time
             last_door_open_time = now
+            print("Door opened!")
 
         # If distance is increased since last measurement, assume the door opened. Omit in calibration phase again.
         if not in_calibration and distance > last_distance + DISTANCE_EPSILON:
             global last_door_close_time
             last_door_close_time = now
+            print("Door closed!")
 
         # Log the distance measured in this cycle:
         last_distance = distance
@@ -88,7 +91,6 @@ def observe_door_status():
 
 # Handles HTTP requests done
 class DoorTDRequestHandler(BaseHTTPRequestHandler):
-
     open_event_signalized = {}
 
     # Handler for the GET requests
@@ -102,7 +104,7 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({
                 "@context": [
                     "http://w3c.github.io/wot/w3c-wot-td-context.jsonld",
-                    {"m3lite": "http://purl.org/iot/vocab/m3-lite#"}, #Introduce M3 lite vocabulary
+                    {"m3lite": "http://purl.org/iot/vocab/m3-lite#"},  # Introduce M3 lite vocabulary
                     {"jup": "http://w3id.org/charta77/jup/"},
                     {"dbp": "http://dbpedia.org/property/"},
                     {"saref": "https://w3id.org/saref#"}
@@ -130,7 +132,7 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
                         },
                         "writeable": False,
                         "hrefs": ["/isopen"],
-                        "stability": -1 # Irregular changes
+                        "stability": -1  # Irregular changes
                     }
                 ],
                 "events": [
@@ -162,7 +164,7 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
             # Check whether the last report of this resource was sent after the last door open event,
             # thus the client already knows about it:
             if self.open_event_signalized[self.path] > last_door_open_time:
-                self.send_response(208) # Send Already Reported
+                self.send_response(208)  # Send Already Reported
                 self.send_header('Retry-After', '1')
                 self.end_headers()
 
@@ -170,30 +172,31 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
                 # The last door open event is younger than the last report made via this resource.
                 # Report the event to the client.
                 data = json.dumps({
-                    'value': time.time() # We provide the UNIX-timestamp of the event as data.
+                    'value': time.time()  # We provide the UNIX-timestamp of the event as data.
                 })
 
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
                 self.send_header('Content-Length', '%d' % len(data))
                 self.end_headers()
-                self.wfile.write(data)
-                # Remember that we have signalized door openings at this point of time:
+                self.wfile.write(bytes(data, 'UTF-8'))
+                self.wfile.flush()
+
                 self.open_event_signalized[self.path] = time.time()
 
-        elif self.path == '/openevent': # Only POST is allowed on this resource
-            self.send_response_only(405) # Send Method Not Allowed
+        elif self.path == '/openevent':  # Only POST is allowed on this resource
+            self.send_response_only(405)  # Send Method Not Allowed
 
         else:
-            self.send_response_only(404) # Send Not Found
+            self.send_response_only(404)  # Send Not Found
 
     def do_POST(self):
-        if self.path == "/openevent": # Client wants a new subscription to door open events:
+        if self.path == "/openevent":  # Client wants a new subscription to door open events:
             # Create a new resource. No configuration data is supported for this event:
             event_resource_uri = '/open_evt_%d' % len(self.open_event_signalized)
             # Any door opening happened until should not be reported to the client.
             # So set its last report timestamp to now:
-            self.open_event_signalized[event_resource_uri] = time.timestamp()
+            self.open_event_signalized[event_resource_uri] = time.time()
 
             # Send a redirect to the new resource:
             self.send_response(308)
@@ -201,9 +204,9 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
         elif not self.path or self.path == '/' or self.path in self.open_event_signalized.keys():
-            self.send_response_only(405) # Send Method Not Allowed
+            self.send_response_only(405)  # Send Method Not Allowed
         else:
-            self.send_response_only(404) # Send Not Found
+            self.send_response_only(404)  # Send Not Found
 
 
 # Start daemon thread montoring the time of the last door opening:
