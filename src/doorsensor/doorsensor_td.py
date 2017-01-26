@@ -36,7 +36,7 @@ GPIO.setup(GPIO_ECHO, GPIO.IN)
 
 def observe_door_status():
     # Log the timestamp when starting to measure. Marks begin of calibration time.
-    start_time = time.time()
+    calib_start_time = time.time()
     # The distance in cm measured during the last cycle:
     last_distance = 0
 
@@ -67,7 +67,7 @@ def observe_door_status():
 
         # Check whether this is still in the calibration interval:
         now = time.time()
-        in_calibration = now - start_time < DISTANCE_CALIBRATION_TIME
+        in_calibration = now - calib_start_time < DISTANCE_CALIBRATION_TIME
 
         # If distance is diminished since last measurement, assume the door opened.
         # Omit setting the door open time during calibration phase, so no false positives occure
@@ -83,7 +83,7 @@ def observe_door_status():
         # Log the distance measured in this cycle:
         last_distance = distance
         # Wait some time until next measurement
-        time.sleep(0.5)
+        time.sleep(1)
 
 
 # Handles HTTP requests done
@@ -162,17 +162,22 @@ class DoorTDRequestHandler(BaseHTTPRequestHandler):
             # Check whether the last report of this resource was sent after the last door open event,
             # thus the client already knows about it:
             if self.open_event_signalized[self.path] > last_door_open_time:
-                self.send_response_only(208) # Send Already Reported
+                self.send_response(208) # Send Already Reported
+                self.send_header('Retry-After', '1')
+                self.end_headers()
 
             else:
                 # The last door open event is younger than the last report made via this resource.
                 # Report the event to the client.
+                data = json.dumps({
+                    'value': time.time() # We provide the UNIX-timestamp of the event as data.
+                })
+
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', '%d' % len(data))
                 self.end_headers()
-                self.wfile.write(json.dumps({
-                    'value': datetime.now().timestamp() # We provide the UNIX-timestamp of the event as data.
-                }))
+                self.wfile.write(data)
                 # Remember that we have signalized door openings at this point of time:
                 self.open_event_signalized[self.path] = time.time()
 
