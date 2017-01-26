@@ -127,15 +127,6 @@ class DoorHATEOASRequestHandler(BaseHTTPRequestHandler):
         else:
             self.send_response_only(404) # Send Not Found
 
-    def do_POST(self):
-        self.send_response_only(405)  # Send Method Not Allowed
-
-    def do_PUT(self):
-        self.send_response_only(405)  # Send Method Not Allowed
-
-    def do_DELETE(self):
-        self.send_response_only(405)  # Send Method Not Allowed
-
 
 # Start daemon thread montoring the time of the last door opening:
 door_sensor_thread = threading.Thread(target=observe_door_status, args=())
