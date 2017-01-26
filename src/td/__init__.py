@@ -743,7 +743,11 @@ class TDEvent(object):
             for base_url in self.__td.uris():
                 base_url_parsed = urlparse(base_url)
                 if base_url_parsed.scheme == 'http':
-                    subscription_uri = base_url + response.headers['Location']
+                    location_parse = urlparse(response.headers['Location'])
+                    if location_parse.scheme and location_parse.netloc:
+                        subscription_uri = response.headers['Location']
+                    else:
+                        subscription_uri = base_url + response.headers['Location']
 
             if subscription_uri:
                 return EventSubscription(subscription_uri, self.value_type(), poll_interval)
