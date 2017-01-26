@@ -4,6 +4,9 @@ from operator import itemgetter
 from urllib.parse import urlparse
 import http.client as httplib
 
+from src.failuredetection import PingFailureDetector
+
+
 class NotFoundException(Exception):
     """
     Raised when a resource is not found.
@@ -101,8 +104,23 @@ class HATEOASDispatcherService(object):
             vr_href = self._next_vresource_href()
             self._mappers[vr_href] = r
             self._priorities[vr_href] = priority
+
+            target_parsed = urlparse(r.mapped_url())
+            fd = PingFailureDetector(target_parsed.netloc,
+                                     failure_callback=(lambda fd: self.on_virtual_resource_target_failed(fd, vr_href, r)),
+                                     restart_callback=(lambda fd: self.on_virtual_resource_target_restart(fd, vr_href, r)))
+            fd.start()
         else:
             raise ValueError("Mappers must implement VirtualMapperResource")
+
+    def on_virtual_resource_target_failed(self, fd, vr_href, vr):
+        del self._mappers[vr_href] # Remove from list of mappers
+        num_fallbacks = len([r for r in self._mappers.values() if r.response_media_type() == vr.response_media_type()])
+        print("Mapped target %s failed. %d fallback(s) left." % (vr.mapped_url(), num_fallbacks))
+
+    def on_virtual_resource_target_restart(self, fd, vr_href, vr):
+        print("Mapped target %s restarted with priority %d" % (vr.mapped_url(), self._priorities[vr_href]))
+        self._mappers[vr_href] = vr
 
     def _get_request_handler(self, base_url, virtual_resources, priorities):
         class HATEOASDispatchServiceHandler(BaseHTTPRequestHandler):
