@@ -36,7 +36,7 @@ GPIO.setup(GPIO_ECHO, GPIO.IN)
 
 def observe_door_status():
     # Log the timestamp when starting to measure. Marks begin of calibration time.
-    start_time = time.time()
+    calib_start_time = time.time()
     # The distance in cm measured during the last cycle:
     last_distance = 0
 
@@ -67,7 +67,7 @@ def observe_door_status():
 
         # Check whether this is still in the calibration interval:
         now = time.time()
-        in_calibration = now - start_time < DISTANCE_CALIBRATION_TIME
+        in_calibration = now - calib_start_time < DISTANCE_CALIBRATION_TIME
 
         # If distance is diminished since last measurement, assume the door opened.
         # Omit setting the door open time during calibration phase, so no false positives occure
