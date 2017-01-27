@@ -32,7 +32,7 @@
     <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#AlarmAction">
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Action"/>
         <rdfs:comment>Invokes some sort of alarm.</rdfs:comment>
-        <rdfs:seeAlso rdf:resource="http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#AlarmAction"/>
+        <rdfs:seeAlso rdf:resource="http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Alarm"/>
     </owl:Class>
     
 
@@ -51,6 +51,14 @@
     <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Authenticator">
         <rdfs:comment xml:lang="en">A thing providing authentication services.</rdfs:comment>
         <rdfs:seeAlso rdf:resource="http://ns.inria.fr/ludo/v1/xapi#Authentication"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#BellRingAction -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#BellRingAction">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#PlaybackAction"/>
     </owl:Class>
     
 
@@ -159,6 +167,14 @@
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#Property"/>
         <rdfs:comment xml:lang="en">Defines whether some physical entity is open.</rdfs:comment>
         <rdfs:seeAlso rdf:resource="https://w3id.org/saref#OpenCloseState"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.matthias-fisch.de/ontologies/wot#PlayWelcomeAction -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#PlayWelcomeAction">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#PlaybackAction"/>
     </owl:Class>
     
 
