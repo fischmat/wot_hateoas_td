@@ -209,6 +209,7 @@ class HATEOASDispatcherService(object):
                             response = mapper.handle_POST(href, data, self.headers)
                         except Exception:
                             self.send_response_only(500)
+                            return
                         self.send_response(200)
                         self.send_header('Content-Type', 'application/json')
                         self.end_headers()

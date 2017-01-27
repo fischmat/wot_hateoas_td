@@ -73,7 +73,7 @@ class SpeakerAlarmMapper(VirtualMapperResource):
         if path == '/alarm':
             speaker = self._fetch_resource(self.mapped_url(), method='GET')
             if speaker['_forms']['play_alarm']['accept'] == 'text/plain':
-                self._fetch_resource(url=self.mapped_url() + speaker['_forms']['play_alarm']['href'],
+                return self._fetch_resource(url=self.mapped_url() + speaker['_forms']['play_alarm']['href'],
                                      method= speaker['_forms']['play_alarm']['method'])
             else:
                 raise UnsupportedMediaTypeException()
@@ -86,6 +86,6 @@ class SpeakerAlarmMapper(VirtualMapperResource):
 
 
 dispatcher = HATEOASDispatcherService()
-dispatcher.register_mapper_resource(LightAlarmMapper('http://192.168.42.100:8080/'))
-dispatcher.register_mapper_resource(SpeakerAlarmMapper('http://192.168.42.100:8080/'), priority=1) # TODO Change
+dispatcher.register_mapper_resource(LightAlarmMapper('http://192.168.43.153:80/'))
+dispatcher.register_mapper_resource(SpeakerAlarmMapper('http://192.168.43.171:5000/hateoas/speaker'), priority=1) # TODO Change
 dispatcher.start('http://localhost:7894/', 7894)

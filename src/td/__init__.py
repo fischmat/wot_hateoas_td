@@ -449,7 +449,7 @@ class TDProperty(object):
         @returns Plain string representation of the value.
         """
         url = urlparse(self.url())
-        conn = HTTPConnection(url.netloc)
+        conn = HTTPConnection(url.netloc, timeout=2)
         conn.request('GET', url.path)
         response = conn.getresponse()
         if response.code == 200:
@@ -773,7 +773,7 @@ class EventSubscription(object):
 
     def __poll(self, callback):
         url_parsed = urlparse(self.__uri)
-
+        print("Polling events each %f ms..." % self.__poll_interval)
         while self.__valid:
             conn = HTTPConnection(url_parsed.netloc)
             conn.request('GET', url_parsed.path)

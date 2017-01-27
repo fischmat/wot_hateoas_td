@@ -125,7 +125,7 @@ class TDInputBuilder(object):
         @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
         not be determined or if 'it' describes an object and the latter case is given for any required property.
         """
-        if it['type'] != 'object':
+        if it['@type'] != 'object':
             for key, value in it.items():
                 if key == 'oneOf':
                     v = self.__dispatch_oneof_field(ns_repo, it['oneOf'], sparql_endpoint=sparql_endpoint)
@@ -161,9 +161,12 @@ class TDInputBuilder(object):
         if isinstance(target, TDProperty):
             it = target.value_type()
         elif isinstance(target, TDAction):
-            it = target.input_type()
+            it = target.input_value_type()
         elif isinstance(target, TDEvent):
             it = target.value_type()
+
+        if not it:
+            return {}
 
         ns_repo = target.get_td().namespace_repository()
 

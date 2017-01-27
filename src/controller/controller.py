@@ -9,10 +9,10 @@ from src.semantics import TDInputBuilder, UnknownSemanticsException
 # Configuration. Location of the different things:
 from src.td import get_thing_description_from_url
 
-ROOM_LIGHT_URL = ''
-SPEAKER_URL = ''
-DOOR_URL = ''
-AUTHENTICATOR_URL = ''
+ROOM_LIGHT_URL = 'http://192.168.43.153:80/'
+SPEAKER_URL = 'http://192.168.43.171:5000/td/speaker'
+DOOR_URL = 'http://192.168.42.100:8080/'
+AUTHENTICATOR_URL = 'http://192.168.43.171:5000/td/door_control'
 
 auth_alt_fd = None
 
@@ -30,11 +30,18 @@ class AlarmSystem(object):
 
     def on_door_opened(self, is_opened):
         if is_opened:  # If the door is opened and not closed
+            print("Door opened!")
             # Calculate seconds since last authentication:
+            try:
+                auth_prop = self.authenticator.get_property_by_types(['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission'])
+                authenticated = auth_prop.value()
+            except Exception:
+                authenticated = False
             secs = (datetime.datetime.now() - self.last_auth_time).total_seconds()
 
-            if secs <= self.auth_ttl_secs:  # Permission case
-                welcome_action = self.alarm_source.get_action_by_types(['http://www.matthias-fisch.de/ontologies/wot#PlaybackAction'])
+            if authenticated:  # Permission case
+                print("Permission")
+                welcome_action = self.alarm_source.get_action_by_types(['http://www.matthias-fisch.de/ontologies/wot#PlayWelcomeAction'])
                 if welcome_action:
                     ib = TDInputBuilder()
                     ib.add_oneof_rule('http://www.matthias-fisch.de/ontologies/wot#SoundFile', 'http://www.matthias-fisch.de/ontologies/wot#WelcomeSound')
@@ -49,6 +56,7 @@ class AlarmSystem(object):
                     print("Wanted to say 'Welcome', but alarm device is not capable of that :(")
 
             else:  # Alarm case
+                print("No Permission")
                 alarm_action = self.alarm_source.get_action_by_types(
                     ['http://www.matthias-fisch.de/ontologies/wot#AlarmAction'])
 
@@ -74,6 +82,8 @@ class AlarmSystem(object):
 
 
 def on_speaker_failure(fd):
+    print("Speaker failed!")
+
     # Stop old FD on the failed device:
     speaker_fd.invalidate()
 
@@ -83,41 +93,17 @@ def on_speaker_failure(fd):
     alternatives = netscan.scan()  # Scan for hosts that are still up
     for host in alternatives:
         url = "http://%s/" % host
-        thing = get_thing_description_from_url(url)
+        try:
+            thing = get_thing_description_from_url(url)
+        except Exception:
+            continue
 
         # Find a replacement for the alarm source
-        if thing.has_all_events_of(['http://www.matthias-fisch.de/ontologies/wot#AlarmAction']):
+        if thing.has_all_actions_of(['http://www.matthias-fisch.de/ontologies/wot#AlarmAction']):
             alarm_system.alarm_source = thing
 
     if alarm_system.alarm_source is None:
         print("WARNING!!! There is no thing for alarming!")
-
-
-def on_auth_failure(fd):
-    # Stop old subscription to event:
-    auth_subscription.invalidate()
-    # Stop old FD on the failed device:
-    auth_fd.invalidate()
-
-    alternatives = netscan.scan()  # Scan for hosts that are still up
-    for host in alternatives:
-        url = "http://%s/" % host
-        thing = get_thing_description_from_url(url)
-
-        # Replacement must be capable of the permission event:
-        if thing.has_all_events_of(['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission']):
-            # This is the new authenticator:
-            alarm_system.authenticator = thing
-
-            # Subscribe to the event of the new thing
-            new_auth_event = thing.get_event_by_types(
-                ['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission'])
-            new_auth_subscription = new_auth_event.subscribe()
-            new_auth_subscription.start(callback=alarm_system.on_authentication)
-
-            # Install a new failure detector in case that this thing also fails:
-            new_auth_fd = PingFailureDetector(netloc=urlparse(url).netloc, failure_callback=on_auth_failure)
-            new_auth_fd.start()
 
 
 def on_door_failure(fd):
@@ -151,14 +137,14 @@ alarm_system.alarm_source = get_thing_description_from_url(SPEAKER_URL)
 alarm_system.authenticator = get_thing_description_from_url(AUTHENTICATOR_URL)
 alarm_system.door = get_thing_description_from_url(DOOR_URL)
 
-netscan = HostListScanner(['localhost'])
+netscan = HostListScanner(['192.168.43.153'])
 
 # Validate speaker is what we actually want:
 if not alarm_system.alarm_source.has_all_actions_of(['http://www.matthias-fisch.de/ontologies/wot#AlarmAction']):
     print("Speaker at %s does not support required capabilities!" % SPEAKER_URL)
     quit()
 
-if not alarm_system.authenticator.has_all_events_of(
+if not alarm_system.authenticator.has_all_properties_of(
         ['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission']):
     print("Authenticator at %s does not support required capabilities!" % AUTHENTICATOR_URL)
     quit()
@@ -172,18 +158,11 @@ door_open_event = alarm_system.door.get_event_by_types(['http://www.matthias-fis
 door_open_subscription = door_open_event.subscribe()
 door_open_subscription.start(callback=alarm_system.on_door_opened)
 
-auth_event = alarm_system.authenticator.get_event_by_types(
-    ['http://www.matthias-fisch.de/ontologies/wot#DoorEntryPermission'])
-auth_subscription = auth_event.subscribe()
-auth_subscription.start(callback=alarm_system.on_authentication)
-
 # Register failure detection for things:
 speaker_fd = PingFailureDetector(netloc=urlparse(SPEAKER_URL).netloc, failure_callback=on_speaker_failure)
-auth_fd = PingFailureDetector(netloc=urlparse(AUTHENTICATOR_URL).netloc, failure_callback=on_auth_failure)
 door_fd = PingFailureDetector(netloc=urlparse(DOOR_URL).netloc, failure_callback=on_door_failure)
 
 speaker_fd.start()
-auth_fd.start()
 door_fd.start()
 
 try:
