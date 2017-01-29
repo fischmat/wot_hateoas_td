@@ -11,7 +11,7 @@ class LightAlarmMapper(VirtualMapperResource):
     def handle_GET(self, path, headers):
         if path == '/':
             light = self._fetch_resource(self.mapped_url(), method='GET')
-            response = json.dumps({
+            response = {
                 '_forms': {
                     'alarm': {
                         'href': '/alarm',
@@ -19,10 +19,10 @@ class LightAlarmMapper(VirtualMapperResource):
                         'accept': 'application/alarm-invocation+json'
                     }
                 }
-            })
+            }
             for k, v in light.items():
                 if not k.startswith('_'):
-                    response['k'] = v
+                    response[k] = v
             return json.dumps(response)
         else:
             raise NotFoundException("%s does not exist" % path)
@@ -31,11 +31,12 @@ class LightAlarmMapper(VirtualMapperResource):
         if path == '/alarm':
             light = self._fetch_resource(self.mapped_url(), method='GET')
             if light['_forms']['strobeon']['accept'] == 'application/light-strobe-config+json':
-                self._fetch_resource(url=self.mapped_url() + light['_forms']['strobeon']['href'],
+                self._fetch_resource(url=self._urljoin(light['_forms']['strobeon']['href']),
                                      method= light['_forms']['strobeon']['method'],
                                      body={
-                                         'duration': 60
-                                     })
+                                         'duration': json.loads(data)['duration']
+                                     },
+                                     headers={'Content-Type': 'application/light-strobe-config+json'})
             else:
                 raise UnsupportedMediaTypeException()
 
@@ -73,7 +74,7 @@ class SpeakerAlarmMapper(VirtualMapperResource):
         if path == '/alarm':
             speaker = self._fetch_resource(self.mapped_url(), method='GET')
             if speaker['_forms']['play_alarm']['accept'] == 'text/plain':
-                return self._fetch_resource(url=self.mapped_url() + speaker['_forms']['play_alarm']['href'],
+                return self._fetch_resource(url=self._urljoin(speaker['_forms']['play_alarm']['href']),
                                      method= speaker['_forms']['play_alarm']['method'])
             else:
                 raise UnsupportedMediaTypeException()
@@ -88,4 +89,4 @@ class SpeakerAlarmMapper(VirtualMapperResource):
 dispatcher = HATEOASDispatcherService()
 dispatcher.register_mapper_resource(LightAlarmMapper('http://192.168.43.153:80/'))
 dispatcher.register_mapper_resource(SpeakerAlarmMapper('http://192.168.43.171:5000/hateoas/speaker'), priority=1) # TODO Change
-dispatcher.start('http://localhost:7894/', 7894)
+dispatcher.start('http://192.168.43.226:7894/', 7894)
