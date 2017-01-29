@@ -120,6 +120,13 @@
         <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#DateTime"/>
     </owl:Class>
     
+    <!-- http://www.matthias-fisch.de/ontologies/wot#Duration -->
+
+    <owl:Class rdf:about="http://www.matthias-fisch.de/ontologies/wot#Duration">
+        <rdfs:subClassOf rdf:resource="http://www.matthias-fisch.de/ontologies/wot#DateTime"/>
+        <rdfs:seeAlso rdf:resource="http://elite.polito.it/ontologies/dogont.owl#flashingTime"/>
+    </owl:Class>
+
 
 
     <!-- http://www.matthias-fisch.de/ontologies/wot#Light -->
