@@ -40,16 +40,27 @@ class VirtualMapperResource(object):
         self._response_media_type = response_media_type
         self._mapped_url = mapped_url
 
-    def _fetch_resource(self, url, method="GET", body=None):
+    def _urljoin(self, href):
+        if href[0] != '/':
+            href = '/' + href
+        if self.mapped_url()[-1] == '/':
+            return self.mapped_url()[:-1] + href
+        else:
+            return self.mapped_url() + href
+
+    def _fetch_resource(self, url, method="GET", body=None, headers={}):
         if body and not isinstance(body, str):
-            seralized_body = json.dumps(body)
-            headers = {'Content-Type': 'application/json'}
+            serialized_body = json.dumps(body)
+            if 'Content-Type' not in headers:
+                headers = {'Content-Type': 'application/json'}
         elif isinstance(body, str):
-            seralized_body = body
-            headers = {'Content-Type': 'text/plain'}
+            serialized_body = body
+            if 'Content-Type' not in headers:
+                headers = {'Content-Type': 'text/plain'}
         else:
             serialized_body = None
-            headers = {}
+            if 'Content-Type' not in headers:
+                headers = {}
 
         url_parsed = urlparse(url)
         conn = httplib.HTTPConnection(url_parsed.netloc)
@@ -59,7 +70,11 @@ class VirtualMapperResource(object):
         if response.code == 200:
             # Decode JSON responses. Also treat as JSON if no media type specified:
             if 'Content-Type' not in response.headers or response.headers['Content-Type'].endswith('json'):
-                return json.loads(response.read().decode('utf-8'))
+                raw = response.read().decode('utf-8')
+                if raw:
+                    return json.loads(raw)
+                else:
+                    return None
             else:
                 raise ValueError(
                     'The resource %s is encoded in unknown media type %s' % (url, response.headers['Content-Type']))
@@ -207,14 +222,22 @@ class HATEOASDispatcherService(object):
                         data = self.rfile.read(int(self.headers['Content-Length'])).decode('utf-8')
                         try:
                             response = mapper.handle_POST(href, data, self.headers)
-                        except Exception:
-                            self.send_response_only(500)
+                        except NotFoundException:
+                            self.send_response_only(404)
                             return
+                        except UnsupportedMediaTypeException:
+                            self.send_response_only(415)
+                            return
+                        except MethodNotAllowedException:
+                            self.send_response_only(405)
+                            return
+
                         self.send_response(200)
                         self.send_header('Content-Type', 'application/json')
                         self.end_headers()
 
-                        self.wfile.write(bytes(response, 'UTF-8'))
+                        if response:
+                            self.wfile.write(bytes(response, 'UTF-8'))
                     else:
                         self.send_response_only(415) # Send Unsupported Media Type
 
