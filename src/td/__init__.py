@@ -132,6 +132,17 @@ class ThingDescription(object):
                             return TDAction(self, action)
         return None
 
+    def print_actions(self):
+        """
+        Print the actions defined for this TD to stdout.
+        """
+        ns_repo = self.namespace_repository()
+
+        for action in self.__td['actions']:
+            name = action['name'] if 'name' in action else '<unnamed action>'
+            type = ns_repo.resolve(action['@type']) if '@type' in action else 'N/A'
+            print("Action: '%s' (@type: %s)" % (name, type))
+
     def get_event_by_types(self, types, sparql_endpoint = sparql.DEFAULT_SPARQL_ENDPOINT):
         """
         Returns events equivalent to any of the given types.
@@ -585,7 +596,7 @@ class TDAction:
     def __invoke_plain(self, plain_data):
         url = urlparse(self.url())
         conn = HTTPConnection(url.netloc)
-        conn.request('POST', url.path, body=plain_data, headers={'Content-Type': 'application'})
+        conn.request('POST', url.path, body=plain_data, headers={'Content-Type': 'application/json'})
         response = conn.getresponse()
         if response.code != 200:
             raise Exception("Received error code %d %s when invoking action %s" % (response.code, response.status, self.url()))
@@ -598,23 +609,23 @@ class TDAction:
 
         ivt = self.input_value_type()
         ovt = self.output_value_type()
-        if 'type' not in ivt:
+        if ivt and 'valueType' not in ivt.keys():
             out_plain = self.__invoke_plain('')
             if ovt:
                 return _parse_raw_response(out_plain, ovt)
-        elif ivt['type'] == 'string':
+        elif ivt and ivt['valueType'] == 'string':
             _validate_input_string(ivt, input)
             out_plain = self.__invoke_plain(input_data)
             if ovt:
                 return _parse_raw_response(out_plain, ovt)
 
-        elif ivt['type'] == 'number' or ivt['type'] == 'integer' or ivt['type'] == 'float':
+        elif ivt and ivt['valueType'] == 'number' or ivt['valueType'] == 'integer' or ivt['valueType'] == 'float':
             _validate_input_number(ivt, input)
             out_plain = self.__invoke_plain(str(input_data))
             if ovt:
                 return _parse_raw_response(out_plain, ovt)
 
-        elif ivt['type'] == 'object':
+        elif ivt and ivt['valueType'] == 'object':
             _validate_input_object(ivt, input)
             out_plain = self.__invoke_plain(json.dumps(input_data))
             if ovt:

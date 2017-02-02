@@ -93,7 +93,7 @@ class TDInputBuilder(object):
             type = ns_repo.resolve(value)
             for rule_domain, rule_type, rule_value in self.__value_rules:
                 dt_match = (isinstance(rule_value, int) and datatype == 'integer') \
-                           or (isinstance(rule_value, float) and datatype == 'float') \
+                           or (isinstance(rule_value, float) and (datatype == 'float' or datatype == 'number')) \
                            or (isinstance(rule_value, str) and datatype == 'string') \
                            or (isinstance(rule_value, bool) and datatype == 'boolean')
 
@@ -125,7 +125,7 @@ class TDInputBuilder(object):
         @raise UnknownSemanticsException If 'it' describes a field of a primitive type and the value for it could
         not be determined or if 'it' describes an object and the latter case is given for any required property.
         """
-        if it['@type'] != 'object':
+        if it['valueType'] != 'object':
             for key, value in it.items():
                 if key == 'oneOf':
                     v = self.__dispatch_oneof_field(ns_repo, it['oneOf'], sparql_endpoint=sparql_endpoint)
@@ -134,8 +134,8 @@ class TDInputBuilder(object):
                     else:
                         raise UnknownSemanticsException('The semantics of none of the oneOf options could be determined.')
 
-                elif isinstance(key, str) and isinstance(value, str):
-                    v = self.__dispatch_value_field(ns_repo, key, value, it['type'], sparql_endpoint=sparql_endpoint)
+                elif isinstance(key, str) and isinstance(value, str) and key != 'valueType':
+                    v = self.__dispatch_value_field(ns_repo, key, value, it['valueType'], sparql_endpoint=sparql_endpoint)
                     if v:
                         return v
             raise UnknownSemanticsException('Cannot determine semantics of field.')
