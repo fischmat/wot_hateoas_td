@@ -12,14 +12,22 @@ continue_reading = True
 authenticated = False
 
 def log(log_entry):
+	"""
+	Util method for logging events with a timestamp.
+	:param log_entry:
+	:return:
+	"""
 	timestamp = datetime.datetime.now().strftime("%I:%M:%S")
 	print("[{}] {}".format(timestamp, log_entry))
 
-
+# For sake of simplicity: hardcoded list of valid users.
 valid_users = [102]
 
 
 class RFIDReader:
+	"""
+	Class for handling the MFRC522 RFID reader.
+	"""
 	def __init__(self):
 		# Hook the SIGINT for cleaning up.
 		#signal.signal(signal.SIGINT, self.__exit__())
@@ -65,8 +73,6 @@ class RFIDReader:
 			# Get the UID of the card.
 			(status, uid) = self.MIFAREReader.MFRC522_Anticoll()
 
-			#log("UID:" + str(uid[0]))
-
 			# Check if status is ok and user is valid.
 			if status == self.MIFAREReader.MI_OK:
 				if uid[0] in valid_users:
@@ -102,8 +108,6 @@ class RFIDReader:
 		wait_and_close = threading.Thread(target=close_authentication, args=())
 		wait_and_close.daemon = True
 		wait_and_close.start()
-
-		#log("Authenticated: " + str(self.authenticated))
 	
 	def is_authenticated(self):
 		global authenticated

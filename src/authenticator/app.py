@@ -15,14 +15,15 @@ ring_file = "ring.mp3"
 
 
 class SpeakerThing:
+	"""
+	The speaker in our Smart Home.
+	It offers three sounds that can be played: an alarm, a welcome greeting and a door bell sound.
+	"""
 	def __init__(self):
 		play_alarm = hateoas.FormObject('play_alarm', '/play_alarm', hateoas.Method.POST, 'text/plain')
-		play_welcome = hateoas.FormObject('play_welcome', '/play_welcome', hateoas.Method.POST,
-										  'text/plain')
+		play_welcome = hateoas.FormObject('play_welcome', '/play_welcome', hateoas.Method.POST,							  'text/plain')
 		play_ring = hateoas.FormObject('play_ring', '/play_ring', hateoas.Method.POST, 'text/plain')
 		self.resource_object = hateoas.ResourceObject('/hateoas/speaker', [], [play_alarm, play_welcome, play_ring], [])
-
-	# hateoas.ResourceObject('sounds', )
 
 	def start_alarm(self):
 		self.sound(alarm_file)
@@ -43,8 +44,8 @@ class SpeakerThing:
 
 class DoorDistanceSensor:
 	'''
-	Door Distance Sensor:
-	TODO: implement handler for ultrasonic distance sensor
+	The Door Distance Sensor is responsible for authenticating users via RFID.
+	It's named DoorDistanceSensor for legacy reasons but actually doesn't handle the distance sensor.
 	'''
 
 	def __init__(self):
@@ -66,11 +67,19 @@ class DoorDistanceSensor:
 		return self.rfid_reader.is_authenticated()  # Initialization.
 
 
+# Initializing thing instances.
 door_distance_sensor = DoorDistanceSensor()
 speaker = SpeakerThing()
 
 
-# URL routes.
+"""
+REST urls
+"""
+
+# HATEOAS
+
+# Door Authenticator
+
 @app.route('/hateoas/door_control', methods=['GET'])
 def description():
 	return door_distance_sensor.resource_object.to_json()
@@ -80,6 +89,41 @@ def description():
 def door_opened():
 	return jsonify({"door_open": door_distance_sensor.is_door_open()})
 
+
+# Speaker
+
+@app.route('/hateoas/speaker', methods=['GET'])
+def speaker_description():
+	return speaker.resource_object.to_json()
+
+
+@app.route('/hateoas/speaker/play_alarm', methods=['POST'])
+def play_alarm():
+	speaker.start_alarm()
+	return make_response(jsonify({"Playing": "OK"}), 200)
+
+
+@app.route('/hateoas/speaker/play_welcome', methods=['POST'])
+def play_welcome():
+	speaker.start_welcome()
+	return make_response(jsonify({"Playing": "OK"}), 200)
+
+
+@app.route('/hateoas/speaker/play_ring', methods=['POST'])
+def play_ring_hateoas():
+	speaker.start_ring()
+	return make_response(jsonify({"Playing": "OK"}), 200)
+
+
+@app.route('/hateoas/speaker/sounds', methods=['GET'])
+def list_sounds():
+	return jsonify(["alarm", "welcome"])
+
+
+
+# Thing Description
+
+# Door Authenticator
 
 @app.route('/td/door_control')
 def door_description_td():
@@ -119,7 +163,6 @@ def door_description_td():
 		]
 	})
 
-
 @app.route('/td/door_control/isauthenticated')
 def door_control_td_isauthenticated():
 	return jsonify({"value": door_distance_sensor.is_door_open()})
@@ -131,33 +174,8 @@ def door_control_td_authenticatedevent():
 	#return make_response(jsonify({"timestamp": door_distance_sensor.is_door_open()}), 308)
 
 
-@app.route('/hateoas/speaker', methods=['GET'])
-def speaker_description():
-	return speaker.resource_object.to_json()
 
-
-@app.route('/hateoas/speaker/play_alarm', methods=['POST'])
-def play_alarm():
-	speaker.start_alarm()
-	return make_response(jsonify({"Playing": "OK"}), 200)
-
-
-@app.route('/hateoas/speaker/play_welcome', methods=['POST'])
-def play_welcome():
-	speaker.start_welcome()
-	return make_response(jsonify({"Playing": "OK"}), 200)
-
-
-@app.route('/hateoas/speaker/play_ring', methods=['POST'])
-def play_ring_hateoas():
-	speaker.start_ring()
-	return make_response(jsonify({"Playing": "OK"}), 200)
-
-
-@app.route('/hateoas/speaker/sounds', methods=['GET'])
-def list_sounds():
-	return jsonify(["alarm", "welcome"])
-
+# Speaker
 
 @app.route('/td/speaker')
 def speaker_description_td():
@@ -213,6 +231,8 @@ def speaker_play_ring_td():
 	speaker.start_ring()
 	return make_response(jsonify({"Playing": "OK"}), 200)
 
+
+# Generic error handler
 @app.errorhandler(404)
 def not_found(error):
 	return make_response(jsonify({'error': 'Not found'}), 404)
